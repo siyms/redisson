@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -207,6 +207,20 @@ public class RedissonBucket<V> extends RedissonExpirable implements RBucket<V> {
         }
 
         return commandExecutor.writeAsync(getName(), codec, RedisCommands.SET_BOOLEAN, getName(), encode(value), "XX");
+    }
+
+    @Override
+    public void setAndKeepTTL(V value) {
+        get(setAndKeepTTLAsync(value));
+    }
+
+    @Override
+    public RFuture<Void> setAndKeepTTLAsync(V value) {
+        if (value == null) {
+            return commandExecutor.writeAsync(getName(), RedisCommands.DEL_VOID, getName());
+        }
+
+        return commandExecutor.writeAsync(getName(), codec, RedisCommands.SET, getName(), encode(value), "KEEPTTL");
     }
 
     @Override

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -127,8 +127,13 @@ public class DNSMonitor {
                             log.error("Unable to find entry for current master {}", currentMasterAddr);
                             return;
                         }
-                        masterSlaveEntry.changeMaster(newMasterAddr, entry.getKey());
-                        masters.put(entry.getKey(), newMasterAddr);
+
+                        RFuture<RedisClient> changeFuture = masterSlaveEntry.changeMaster(newMasterAddr, entry.getKey());
+                        changeFuture.onComplete((r, e) -> {
+                            if (e == null) {
+                                masters.put(entry.getKey(), newMasterAddr);
+                            }
+                        });
                     }
                 }
             });

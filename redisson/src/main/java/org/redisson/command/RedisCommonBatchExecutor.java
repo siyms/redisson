@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import org.redisson.command.CommandBatchService.Entry;
 import org.redisson.connection.ConnectionManager;
 import org.redisson.connection.NodeSource;
 import org.redisson.connection.NodeSource.Redirect;
+import org.redisson.liveobject.core.RedissonObjectBuilder;
 import org.redisson.misc.RPromise;
 import org.redisson.misc.RedissonPromise;
 import org.slf4j.Logger;
@@ -49,9 +50,10 @@ public class RedisCommonBatchExecutor extends RedisExecutor<Object, Void> {
     private final AtomicInteger slots;
     private final BatchOptions options;
     
-    public RedisCommonBatchExecutor(NodeSource source, RPromise<Void> mainPromise, 
-            ConnectionManager connectionManager, BatchOptions options, Entry entry, AtomicInteger slots) {
-        super(entry.isReadOnlyMode(), source, null, null, null, mainPromise, false, connectionManager, null);
+    public RedisCommonBatchExecutor(NodeSource source, RPromise<Void> mainPromise,
+                                    ConnectionManager connectionManager, BatchOptions options, Entry entry, AtomicInteger slots, RedissonObjectBuilder.ReferenceType referenceType) {
+        super(entry.isReadOnlyMode(), source, null, null, null,
+                mainPromise, false, connectionManager, null, referenceType);
         this.options = options;
         this.entry = entry;
         this.slots = slots;
@@ -65,7 +67,9 @@ public class RedisCommonBatchExecutor extends RedisExecutor<Object, Void> {
         if (options.getResponseTimeout() > 0) {
             this.responseTimeout = options.getResponseTimeout();
         }
-        
+        if (options.getSyncSlaves() > 0) {
+            this.responseTimeout += options.getSyncTimeout();
+        }
     }
 
     @Override
@@ -114,7 +118,7 @@ public class RedisCommonBatchExecutor extends RedisExecutor<Object, Void> {
         
         writeFuture = connection.send(new CommandsData(attemptPromise, list, options.isSkipResult(), isAtomic, isQueued, options.getSyncSlaves() > 0));
     }
-    
+
     protected boolean isWaitCommand(CommandData<?, ?> c) {
         return c.getCommand().getName().equals(RedisCommands.WAIT.getName());
     }

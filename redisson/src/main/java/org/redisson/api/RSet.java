@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,11 @@
  */
 package org.redisson.api;
 
+import org.redisson.api.mapreduce.RCollectionMapReduce;
+
 import java.util.Iterator;
 import java.util.Set;
 import java.util.stream.Stream;
-
-import org.redisson.api.mapreduce.RCollectionMapReduce;
 
 /**
  * Redis based implementation of {@link java.util.Set}
@@ -245,5 +245,14 @@ public interface RSet<V> extends Set<V>, RExpirable, RSetAsync<V>, RSortable<Set
      * @return values
      */
     Set<V> readIntersection(String... names);
+
+    /**
+     * Tries to add elements only if none of them in set.
+     *
+     * @param values - values to add
+     * @return <code>true</code> if elements successfully added,
+     *          otherwise <code>false</code>.
+     */
+    boolean tryAdd(V... values);
 
 }

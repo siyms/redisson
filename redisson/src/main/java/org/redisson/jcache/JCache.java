@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,16 @@
 package org.redisson.jcache;
 
 import io.netty.buffer.ByteBuf;
-import org.redisson.Redisson;
-import org.redisson.RedissonObject;
-import org.redisson.ScanResult;
+import org.redisson.*;
 import org.redisson.api.*;
 import org.redisson.api.listener.MessageListener;
 import org.redisson.client.RedisClient;
 import org.redisson.client.codec.Codec;
 import org.redisson.client.codec.StringCodec;
 import org.redisson.client.protocol.RedisCommand;
-import org.redisson.client.protocol.RedisCommand.ValueType;
 import org.redisson.client.protocol.RedisCommands;
 import org.redisson.client.protocol.decoder.MapScanResult;
+import org.redisson.client.protocol.decoder.MapValueDecoder;
 import org.redisson.codec.BaseEventCodec;
 import org.redisson.connection.decoder.MapGetAllDecoder;
 import org.redisson.iterator.RedissonBaseMapIterator;
@@ -36,9 +34,7 @@ import org.redisson.jcache.configuration.JCacheConfiguration;
 import org.redisson.misc.Hash;
 import org.redisson.misc.RPromise;
 import org.redisson.misc.RedissonPromise;
-import org.redisson.reactive.CommandReactiveService;
 import org.redisson.reactive.ReactiveProxyBuilder;
-import org.redisson.rx.CommandRxService;
 import org.redisson.rx.RxProxyBuilder;
 
 import javax.cache.Cache;
@@ -847,7 +843,8 @@ public class JCache<K, V> extends RedissonObject implements Cache<K, V>, CacheAs
         
         RFuture<Map<K, V>> res;
         if (accessTimeout == -1) {
-            res = commandExecutor.evalReadAsync(getName(), codec, new RedisCommand<Map<Object, Object>>("EVAL", new MapGetAllDecoder(new ArrayList<Object>(keys), 0, true), ValueType.MAP_VALUE),
+            res = commandExecutor.evalReadAsync(getName(), codec, new RedisCommand<Map<Object, Object>>("EVAL",
+                            new MapValueDecoder(new MapGetAllDecoder(new ArrayList<Object>(keys), 0, true))),
                     "local expireHead = redis.call('zrange', KEYS[2], 0, 0, 'withscores');"
                   + "local accessTimeout = ARGV[1]; "
                   + "local currentTime = tonumber(ARGV[2]); "
@@ -877,7 +874,8 @@ public class JCache<K, V> extends RedissonObject implements Cache<K, V>, CacheAs
                   + "return result;",
             Arrays.<Object>asList(getName(), getTimeoutSetName(), getRemovedChannelName()), args.toArray());
         } else {
-            res = commandExecutor.evalWriteAsync(getName(), codec, new RedisCommand<Map<Object, Object>>("EVAL", new MapGetAllDecoder(new ArrayList<Object>(keys), 0, true), ValueType.MAP_VALUE),
+            res = commandExecutor.evalWriteAsync(getName(), codec, new RedisCommand<Map<Object, Object>>("EVAL",
+                            new MapValueDecoder(new MapGetAllDecoder(new ArrayList<Object>(keys), 0, true))),
                             "local expireHead = redis.call('zrange', KEYS[2], 0, 0, 'withscores');"
                           + "local accessTimeout = ARGV[1]; "
                           + "local currentTime = tonumber(ARGV[2]); "
@@ -2937,10 +2935,10 @@ public class JCache<K, V> extends RedissonObject implements Cache<K, V>, CacheAs
             return (T) this;
         }
         if (clazz == CacheReactive.class) {
-            return (T) ReactiveProxyBuilder.create(new CommandReactiveService(commandExecutor.getConnectionManager()), this, CacheReactive.class);
+            return (T) ReactiveProxyBuilder.create(((RedissonReactive) redisson.reactive()).getCommandExecutor(), this, CacheReactive.class);
         }
         if (clazz == CacheRx.class) {
-            return (T) RxProxyBuilder.create(new CommandRxService(commandExecutor.getConnectionManager()), this, CacheRx.class);
+            return (T) RxProxyBuilder.create(((RedissonRx) redisson.rxJava()).getCommandExecutor(), this, CacheRx.class);
         }
         return null;
     }

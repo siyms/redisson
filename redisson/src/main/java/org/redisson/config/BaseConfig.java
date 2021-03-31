@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ public class BaseConfig<T extends BaseConfig<T>> {
 
     private boolean keepAlive;
     
-    private boolean tcpNoDelay;
+    private boolean tcpNoDelay = true;
 
     
     BaseConfig() {
@@ -422,7 +422,7 @@ public class BaseConfig<T extends BaseConfig<T>> {
     /**
      * Enables TCP noDelay for connection
      * <p>
-     * Default is <code>false</code>
+     * Default is <code>true</code>
      * 
      * @param tcpNoDelay - boolean value
      * @return config

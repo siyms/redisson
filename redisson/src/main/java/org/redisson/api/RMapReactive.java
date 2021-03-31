@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -333,6 +333,54 @@ public interface RMapReactive<K, V> extends RExpirableReactive {
      *         Previous value if key already exists in the hash and change hasn't been made.
      */
     Mono<V> putIfAbsent(K key, V value);
+
+    /**
+     * Stores the specified <code>value</code> mapped by <code>key</code>
+     * only if mapping already exists.
+     * <p>
+     * If {@link MapWriter} is defined then new map entry is stored in write-through mode.
+     *
+     * @param key - map key
+     * @param value - map value
+     * @return <code>null</code> if key doesn't exist in the hash and value hasn't been set.
+     *         Previous value if key already exists in the hash and new value has been stored.
+     */
+    Mono<V> putIfExists(K key, V value);
+
+    /**
+     * Returns random keys from this map limited by <code>count</code>
+     *
+     * @param count - keys amount to return
+     * @return random keys
+     */
+    Mono<Set<K>> randomKeys(int count);
+
+    /**
+     * Returns random map entries from this map limited by <code>count</code>
+     *
+     * @param count - entries amount to return
+     * @return random entries
+     */
+    Mono<Map<K, V>> randomEntries(int count);
+
+    /**
+     * Stores the specified <code>value</code> mapped by <code>key</code>
+     * only if mapping already exists.
+     * <p>
+     * Returns <code>true</code> if key is a new one in the hash and value was set or
+     * <code>false</code> if key already exists in the hash and change hasn't been made.
+     * <p>
+     * Works faster than <code>{@link #putIfExists(Object, Object)}</code> but doesn't return
+     * previous value associated with <code>key</code>
+     * <p>
+     * If {@link MapWriter} is defined then new map entry is stored in write-through mode.
+     *
+     * @param key - map key
+     * @param value - map value
+     * @return <code>true</code> if key already exists in the hash and new value has been stored.
+     *         <code>false</code> if key doesn't exist in the hash and value hasn't been set.
+     */
+    Mono<Boolean> fastPutIfExists(K key, V value);
 
     /**
      * Returns iterator over map entries collection. 

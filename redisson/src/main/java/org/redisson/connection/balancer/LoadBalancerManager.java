@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 
 import org.redisson.api.NodeType;
 import org.redisson.api.RFuture;
@@ -138,17 +140,39 @@ public class LoadBalancerManager {
 
             if (freezeReason != FreezeReason.RECONNECT
                     || entry.getFreezeReason() == FreezeReason.RECONNECT) {
-                entry.resetFirstFail();
-                entry.setFreezeReason(null);
-                
-                slaveConnectionPool.initConnections(entry);
-                pubSubConnectionPool.initConnections(entry);
-                return true;
+                if (!entry.isInitialized()) {
+                    entry.setInitialized(true);
+                    CountableListener<Void> listener = new CountableListener<Void>() {
+                        @Override
+                        protected void onSuccess(Void value) {
+                            entry.setFreezeReason(null);
+                        }
+                    };
+                    listener.setCounter(2);
+                    BiConsumer<Void, Throwable> initCallBack = new BiConsumer<Void, Throwable>() {
+                        private AtomicBoolean initConnError = new AtomicBoolean(false);
+                        @Override
+                        public void accept(Void r, Throwable ex) {
+                            if (ex == null) {
+                                listener.decCounter();
+                            } else {
+                                if (!initConnError.compareAndSet(false, true)) {
+                                    return;
+                                }
+                                entry.setInitialized(false);
+                            }
+                        }
+                    };
+                    entry.resetFirstFail();
+                    slaveConnectionPool.initConnections(entry).onComplete(initCallBack);
+                    pubSubConnectionPool.initConnections(entry).onComplete(initCallBack);
+                    return true;
+                }
             }
         }
         return false;
     }
-    
+
     public ClientConnectionsEntry freeze(RedisURI address, FreezeReason freezeReason) {
         ClientConnectionsEntry connectionEntry = getEntry(address);
         return freeze(connectionEntry, freezeReason);

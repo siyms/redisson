@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,8 +55,6 @@ public class RedissonReadLock extends RedissonLock implements RLock {
     
     @Override
     <T> RFuture<T> tryLockInnerAsync(long waitTime, long leaseTime, TimeUnit unit, long threadId, RedisStrictCommand<T> command) {
-        internalLockLeaseTime = unit.toMillis(leaseTime);
-
         return evalWriteAsync(getName(), LongCodec.INSTANCE, command,
                                 "local mode = redis.call('hget', KEYS[1], 'mode'); " +
                                 "if (mode == false) then " +
@@ -77,8 +75,8 @@ public class RedissonReadLock extends RedissonLock implements RLock {
                                   "return nil; " +
                                 "end;" +
                                 "return redis.call('pttl', KEYS[1]);",
-                        Arrays.<Object>asList(getName(), getReadWriteTimeoutNamePrefix(threadId)), 
-                        internalLockLeaseTime, getLockName(threadId), getWriteLockName(threadId));
+                        Arrays.<Object>asList(getName(), getReadWriteTimeoutNamePrefix(threadId)),
+                        unit.toMillis(leaseTime), getLockName(threadId), getWriteLockName(threadId));
     }
 
     @Override

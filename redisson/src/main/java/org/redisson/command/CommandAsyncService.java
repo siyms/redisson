@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,25 +15,13 @@
  */
 package org.redisson.command;
 
-import java.io.IOException;
-import java.security.MessageDigest;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
-
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.ByteBufUtil;
+import io.netty.util.ReferenceCountUtil;
 import org.redisson.RedissonReference;
 import org.redisson.SlotCallback;
-import org.redisson.api.*;
+import org.redisson.api.RFuture;
 import org.redisson.cache.LRUCacheMap;
 import org.redisson.client.RedisClient;
 import org.redisson.client.RedisException;
@@ -43,8 +31,6 @@ import org.redisson.client.codec.Codec;
 import org.redisson.client.codec.StringCodec;
 import org.redisson.client.protocol.RedisCommand;
 import org.redisson.client.protocol.RedisCommands;
-import org.redisson.codec.ReferenceCodecProvider;
-import org.redisson.config.Config;
 import org.redisson.config.MasterSlaveServersConfig;
 import org.redisson.connection.ConnectionManager;
 import org.redisson.connection.MasterSlaveEntry;
@@ -55,10 +41,14 @@ import org.redisson.misc.RedissonPromise;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.ByteBufUtil;
-import io.netty.util.ReferenceCountUtil;
+import java.io.IOException;
+import java.security.MessageDigest;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 
 /**
  *
@@ -70,40 +60,18 @@ public class CommandAsyncService implements CommandAsyncExecutor {
     static final Logger log = LoggerFactory.getLogger(CommandAsyncService.class);
 
     final ConnectionManager connectionManager;
-    protected RedissonObjectBuilder objectBuilder;
+    final RedissonObjectBuilder objectBuilder;
+    final RedissonObjectBuilder.ReferenceType referenceType;
 
-    public CommandAsyncService(ConnectionManager connectionManager) {
+    public CommandAsyncService(ConnectionManager connectionManager, RedissonObjectBuilder objectBuilder, RedissonObjectBuilder.ReferenceType referenceType) {
         this.connectionManager = connectionManager;
+        this.objectBuilder = objectBuilder;
+        this.referenceType = referenceType;
     }
 
     @Override
     public ConnectionManager getConnectionManager() {
         return connectionManager;
-    }
-
-    @Override
-    public CommandAsyncExecutor enableRedissonReferenceSupport(RedissonClient redisson) {
-        enableRedissonReferenceSupport(redisson.getConfig(), redisson, null, null);
-        return this;
-    }
-
-    @Override
-    public CommandAsyncExecutor enableRedissonReferenceSupport(RedissonReactiveClient redissonReactive) {
-        enableRedissonReferenceSupport(redissonReactive.getConfig(), null, redissonReactive, null);
-        return this;
-    }
-    
-    @Override
-    public CommandAsyncExecutor enableRedissonReferenceSupport(RedissonRxClient redissonRx) {
-        enableRedissonReferenceSupport(redissonRx.getConfig(), null, null, redissonRx);
-        return this;
-    }
-
-    private void enableRedissonReferenceSupport(Config config, RedissonClient redisson, RedissonReactiveClient redissonReactive, RedissonRxClient redissonRx) {
-        Codec codec = config.getCodec();
-        objectBuilder = new RedissonObjectBuilder(config, redisson, redissonReactive, redissonRx);
-        ReferenceCodecProvider codecProvider = objectBuilder.getReferenceCodecProvider();
-        codecProvider.registerCodec((Class<Codec>) codec.getClass(), codec);
     }
 
     private boolean isRedissonReferenceSupportEnabled() {
@@ -136,10 +104,15 @@ public class CommandAsyncService implements CommandAsyncExecutor {
 
     @Override
     public <V> V get(RFuture<V> future) {
+        if (Thread.currentThread().getName().startsWith("redisson-netty")) {
+            throw new IllegalStateException("Sync methods can't be invoked from async/rx/reactive listeners");
+        }
+
         try {
             future.await();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            throw new RedisException(e);
         }
         if (future.isSuccess()) {
             return future.getNow();
@@ -528,7 +501,7 @@ public class CommandAsyncService implements CommandAsyncExecutor {
             args.addAll(Arrays.asList(params));
 
             RedisExecutor<T, R> executor = new RedisExecutor<>(readOnlyMode, nodeSource, codec, cmd,
-                                                        args.toArray(), promise, false, connectionManager, objectBuilder);
+                                                        args.toArray(), promise, false, connectionManager, objectBuilder, referenceType);
             executor.execute();
 
             promise.onComplete((res, e) -> {
@@ -601,7 +574,8 @@ public class CommandAsyncService implements CommandAsyncExecutor {
     public <V, R> void async(boolean readOnlyMode, NodeSource source, Codec codec,
             RedisCommand<V> command, Object[] params, RPromise<R> mainPromise, 
             boolean ignoreRedirect) {
-        RedisExecutor<V, R> executor = new RedisExecutor<>(readOnlyMode, source, codec, command, params, mainPromise, ignoreRedirect, connectionManager, objectBuilder);
+        RedisExecutor<V, R> executor = new RedisExecutor<>(readOnlyMode, source, codec, command, params, mainPromise,
+                                                    ignoreRedirect, connectionManager, objectBuilder, referenceType);
         executor.execute();
     }
 
@@ -664,7 +638,7 @@ public class CommandAsyncService implements CommandAsyncExecutor {
             if (this instanceof CommandBatchService) {
                 executorService = (CommandBatchService) this;
             } else {
-                executorService = new CommandBatchService(connectionManager);
+                executorService = new CommandBatchService(this);
             }
 
             for (String key : entry.getValue()) {
@@ -759,9 +733,7 @@ public class CommandAsyncService implements CommandAsyncExecutor {
         } else {
             List<Object> params = new ArrayList<Object>(queueNames.length + 1);
             params.add(name);
-            for (Object queueName : queueNames) {
-                params.add(queueName);
-            }
+            params.addAll(Arrays.asList(queueNames));
             params.add(secondsTimeout);
             return writeAsync(name, codec, command, params.toArray());
         }

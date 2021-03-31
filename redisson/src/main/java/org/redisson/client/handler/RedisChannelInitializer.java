@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,9 +95,9 @@ public class RedisChannelInitializer extends ChannelInitializer<Channel> {
         }
         
         if (type == Type.PLAIN) {
-            ch.pipeline().addLast(new CommandDecoder(config.getExecutor(), config.isDecodeInExecutor()));
+            ch.pipeline().addLast(new CommandDecoder(config.getAddress().getScheme()));
         } else {
-            ch.pipeline().addLast(new CommandPubSubDecoder(config.getExecutor(), config.isKeepPubSubOrder(), config.isDecodeInExecutor()));
+            ch.pipeline().addLast(new CommandPubSubDecoder(config));
         }
 
         ch.pipeline().addLast(new ErrorsLoggingHandler());

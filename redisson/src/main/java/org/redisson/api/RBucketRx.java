@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
  */
 package org.redisson.api;
 
-import io.reactivex.Completable;
-import io.reactivex.Maybe;
-import io.reactivex.Single;
+import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Maybe;
+import io.reactivex.rxjava3.core.Single;
 
 import java.util.concurrent.TimeUnit;
 
@@ -139,5 +139,15 @@ public interface RBucketRx<V> extends RExpirableRx {
      * @return void
      */
     Completable set(V value, long timeToLive, TimeUnit timeUnit);
+
+    /**
+     * Set value and keep existing TTL.
+     * <p>
+     * Requires <b>Redis 6.0.0 and higher.</b>
+     *
+     * @param value - value to set
+     * @return void
+     */
+    Completable setAndKeepTTL(V value);
 
 }

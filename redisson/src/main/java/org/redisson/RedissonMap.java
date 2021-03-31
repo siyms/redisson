@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,10 +37,10 @@ import org.redisson.client.codec.Codec;
 import org.redisson.client.codec.LongCodec;
 import org.redisson.client.codec.StringCodec;
 import org.redisson.client.protocol.RedisCommand;
-import org.redisson.client.protocol.RedisCommand.ValueType;
 import org.redisson.client.protocol.RedisCommands;
 import org.redisson.client.protocol.convertor.NumberConvertor;
 import org.redisson.client.protocol.decoder.MapScanResult;
+import org.redisson.client.protocol.decoder.MapValueDecoder;
 import org.redisson.command.CommandAsyncExecutor;
 import org.redisson.connection.decoder.MapGetAllDecoder;
 import org.redisson.iterator.RedissonMapIterator;
@@ -98,7 +98,7 @@ public class RedissonMap<K, V> extends RedissonExpirable implements RMap<K, V> {
     
     @Override
     public <KOut, VOut> RMapReduce<K, V, KOut, VOut> mapReduce() {
-        return new RedissonMapReduce<>(this, redisson, commandExecutor.getConnectionManager());
+        return new RedissonMapReduce<>(this, redisson, commandExecutor);
     }
     
     @Override
@@ -569,6 +569,26 @@ public class RedissonMap<K, V> extends RedissonExpirable implements RMap<K, V> {
     }
 
     @Override
+    public Set<K> randomKeys(int count) {
+        return get(randomKeysAsync(count));
+    }
+
+    @Override
+    public Map<K, V> randomEntries(int count) {
+        return get(randomEntriesAsync(count));
+    }
+
+    @Override
+    public RFuture<Set<K>> randomKeysAsync(int count) {
+        return commandExecutor.readAsync(getName(), codec, RedisCommands.HRANDFIELD_KEYS, getName(), count);
+    }
+
+    @Override
+    public RFuture<Map<K, V>> randomEntriesAsync(int count) {
+        return commandExecutor.readAsync(getName(), codec, RedisCommands.HRANDFIELD, getName(), count, "WITHVALUES");
+    }
+
+    @Override
     public RFuture<Map<K, V>> getAllAsync(Set<K> keys) {
         if (keys.isEmpty()) {
             return RedissonPromise.newSucceededFuture(Collections.emptyMap());
@@ -608,7 +628,8 @@ public class RedissonMap<K, V> extends RedissonExpirable implements RMap<K, V> {
         List<Object> args = new ArrayList<>(keys.size() + 1);
         args.add(getName());
         encodeMapKeys(args, keys);
-        RFuture<Map<K, V>> future = commandExecutor.readAsync(getName(), codec, new RedisCommand<>("HMGET", new MapGetAllDecoder(new ArrayList<>(keys), 0), ValueType.MAP_VALUE), 
+        RFuture<Map<K, V>> future = commandExecutor.readAsync(getName(), codec, new RedisCommand<>("HMGET",
+                        new MapValueDecoder(new MapGetAllDecoder(new ArrayList<>(keys), 0))),
                 args.toArray());
         return future;
     }
@@ -864,7 +885,37 @@ public class RedissonMap<K, V> extends RedissonExpirable implements RMap<K, V> {
         return commandExecutor.readAsync(getName(), codec, RedisCommands.HGETALL, getName());
     }
 
-    
+    @Override
+    public V putIfExists(K key, V value) {
+        return get(putIfExistsAsync(key, value));
+    }
+
+    @Override
+    public RFuture<V> putIfExistsAsync(K key, V value) {
+        checkKey(key);
+        checkValue(value);
+
+        RFuture<V> future = putIfExistsOperationAsync(key, value);
+        if (hasNoWriter()) {
+            return future;
+        }
+
+        MapWriterTask.Add task = new MapWriterTask.Add(key, value);
+        return mapWriterFuture(future, task, Objects::nonNull);
+    }
+
+    protected RFuture<V> putIfExistsOperationAsync(K key, V value) {
+        String name = getName(key);
+        return commandExecutor.evalWriteAsync(name, codec, RedisCommands.EVAL_MAP_VALUE,
+            "local value = redis.call('hget', KEYS[1], ARGV[1]); "
+                + "if value ~= false then "
+                    + "redis.call('hset', KEYS[1], ARGV[1], ARGV[2]); "
+                    + "return value; "
+                + "end; "
+                + "return nil; ",
+                Collections.singletonList(name), encodeMapKey(key), encodeMapValue(value));
+    }
+
     @Override
     public V putIfAbsent(K key, V value) {
         return get(putIfAbsentAsync(key, value));
@@ -873,7 +924,7 @@ public class RedissonMap<K, V> extends RedissonExpirable implements RMap<K, V> {
     @Override
     public RFuture<V> putIfAbsentAsync(K key, V value) {
         checkKey(key);
-        checkValue(key);
+        checkValue(value);
         
         RFuture<V> future = putIfAbsentOperationAsync(key, value);
         if (hasNoWriter()) {
@@ -881,7 +932,7 @@ public class RedissonMap<K, V> extends RedissonExpirable implements RMap<K, V> {
         }
         
         MapWriterTask.Add task = new MapWriterTask.Add(key, value);
-        return mapWriterFuture(future, task, r -> r == null);
+        return mapWriterFuture(future, task, Objects::isNull);
     }
 
     protected boolean hasNoWriter() {
@@ -921,6 +972,38 @@ public class RedissonMap<K, V> extends RedissonExpirable implements RMap<K, V> {
     protected RFuture<Boolean> fastPutIfAbsentOperationAsync(K key, V value) {
         String name = getName(key);
         return commandExecutor.writeAsync(name, codec, RedisCommands.HSETNX, name, encodeMapKey(key), encodeMapValue(value));
+    }
+
+    @Override
+    public boolean fastPutIfExists(K key, V value) {
+        return get(fastPutIfExistsAsync(key, value));
+    }
+
+    @Override
+    public RFuture<Boolean> fastPutIfExistsAsync(K key, V value) {
+        checkKey(key);
+        checkValue(value);
+
+        RFuture<Boolean> future = fastPutIfExistsOperationAsync(key, value);
+        if (hasNoWriter()) {
+            return future;
+        }
+
+        MapWriterTask.Add task = new MapWriterTask.Add(key, value);
+        return mapWriterFuture(future, task, Function.identity());
+    }
+
+    protected RFuture<Boolean> fastPutIfExistsOperationAsync(K key, V value) {
+        String name = getName(key);
+        return commandExecutor.evalWriteAsync(name, codec, RedisCommands.EVAL_BOOLEAN,
+            "local value = redis.call('hget', KEYS[1], ARGV[1]); "
+                + "if value ~= false then "
+                    + "redis.call('hset', KEYS[1], ARGV[1], ARGV[2]); "
+                    + "return 1; "
+                + "end; "
+                + "return 0; ",
+                Collections.singletonList(name),
+                encodeMapKey(key), encodeMapValue(value));
     }
 
     @Override
@@ -1338,7 +1421,12 @@ public class RedissonMap<K, V> extends RedissonExpirable implements RMap<K, V> {
                 writeBehindTask.addTask(task);
             } else {
                 commandExecutor.getConnectionManager().getExecutor().execute(() -> {
-                    options.getWriter().delete(deletedKeys);
+                    try {
+                        options.getWriter().delete(deletedKeys);
+                    } catch (Exception ex) {
+                        result.tryFailure(ex);
+                        return;
+                    }
                     result.trySuccess((long) deletedKeys.size());
                 });
             }
@@ -1490,6 +1578,11 @@ public class RedissonMap<K, V> extends RedissonExpirable implements RMap<K, V> {
         }
 
         @Override
+        public boolean isEmpty() {
+            return !iterator().hasNext();
+        }
+
+        @Override
         public Iterator<K> iterator() {
             return keyIterator(pattern, count);
         }
@@ -1540,6 +1633,11 @@ public class RedissonMap<K, V> extends RedissonExpirable implements RMap<K, V> {
         Values(String keyPattern, int count) {
             this.keyPattern = keyPattern;
             this.count = count;
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return !iterator().hasNext();
         }
 
         @Override

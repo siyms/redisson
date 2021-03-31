@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,13 @@
  */
 package org.redisson.client.protocol.decoder;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import org.redisson.api.StreamMessageId;
 import org.redisson.client.handler.State;
-import org.redisson.client.protocol.Decoder;
+
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 
@@ -45,7 +45,7 @@ public class StreamResultDecoder implements MultiDecoder<Object> {
             List<List<Object>> streamEntries = (List<List<Object>>) entries.get(1);
             if (!streamEntries.isEmpty()) {
                 String name = (String) entries.get(0);
-                Map<StreamMessageId, Map<Object, Object>> ee = new HashMap<>();
+                Map<StreamMessageId, Map<Object, Object>> ee = new LinkedHashMap<>();
                 result.put(name, ee);
                 
                 for (List<Object> se : streamEntries) {
@@ -58,11 +58,6 @@ public class StreamResultDecoder implements MultiDecoder<Object> {
             }
         }
         return result;
-    }
-
-    @Override
-    public Decoder<Object> getDecoder(int paramNum, State state) {
-        return null;
     }
 
 }

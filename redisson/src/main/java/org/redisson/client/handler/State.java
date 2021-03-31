@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,17 @@ public class State {
 
     private int level = -1;
 
+    private Object value;
+
     public State() {
+    }
+
+    public <T> T getValue() {
+        return (T) value;
+    }
+
+    public void setValue(Object value) {
+        this.value = value;
     }
 
     public int getLevel() {

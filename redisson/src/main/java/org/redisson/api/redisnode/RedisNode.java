@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,13 @@ import java.util.concurrent.TimeUnit;
  *
  */
 public interface RedisNode {
+
+    /**
+     * Returns Redis memory statistics
+     *
+     * @return statistics info map
+     */
+    Map<String, String> getMemoryStatistics();
 
     /**
      * Returns current Redis server time in seconds

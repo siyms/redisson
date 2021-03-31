@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,6 @@
  */
 package org.redisson.connection.pool;
 
-import io.netty.util.Timeout;
-import io.netty.util.TimerTask;
 import org.redisson.api.NodeType;
 import org.redisson.api.RFuture;
 import org.redisson.client.RedisConnection;
@@ -37,7 +35,8 @@ import java.net.InetSocketAddress;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
@@ -53,7 +52,7 @@ abstract class ConnectionPool<T extends RedisConnection> {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
 
-    protected final List<ClientConnectionsEntry> entries = new CopyOnWriteArrayList<ClientConnectionsEntry>();
+    protected final Queue<ClientConnectionsEntry> entries = new ConcurrentLinkedQueue<>();
 
     final ConnectionManager connectionManager;
 
@@ -361,61 +360,53 @@ abstract class ConnectionPool<T extends RedisConnection> {
 
         connectionManager.getConnectionEventsHub().fireDisconnect(entry.getClient().getAddr());
 
-        connectionManager.newTimeout(new TimerTask() {
-            @Override
-            public void run(Timeout timeout) throws Exception {
-                synchronized (entry) {
-                    if (entry.getFreezeReason() != FreezeReason.RECONNECT
-                            || connectionManager.isShuttingDown()) {
+        connectionManager.newTimeout(timeout -> {
+            synchronized (entry) {
+                if (entry.getFreezeReason() != FreezeReason.RECONNECT
+                        || connectionManager.isShuttingDown()) {
+                    return;
+                }
+            }
+
+            RFuture<RedisConnection> connectionFuture = entry.getClient().connectAsync();
+            connectionFuture.onComplete((c, e) -> {
+                    synchronized (entry) {
+                        if (entry.getFreezeReason() != FreezeReason.RECONNECT) {
+                            return;
+                        }
+                    }
+
+                    if (e != null) {
+                        scheduleCheck(entry);
                         return;
                     }
-                }
+                    if (!c.isActive()) {
+                        c.closeAsync();
+                        scheduleCheck(entry);
+                        return;
+                    }
 
-                RFuture<RedisConnection> connectionFuture = entry.getClient().connectAsync();
-                connectionFuture.onComplete((c, e) -> {
-                        synchronized (entry) {
-                            if (entry.getFreezeReason() != FreezeReason.RECONNECT) {
-                                return;
-                            }
-                        }
-
-                        if (e != null) {
-                            scheduleCheck(entry);
-                            return;
-                        }
-                        if (!c.isActive()) {
-                            c.closeAsync();
-                            scheduleCheck(entry);
-                            return;
-                        }
-
-                        BiConsumer<String, Throwable> pingListener = new BiConsumer<String, Throwable>() {
-                            @Override
-                            public void accept(String t, Throwable u) {
-                                try {
-                                    synchronized (entry) {
-                                        if (entry.getFreezeReason() != FreezeReason.RECONNECT) {
-                                            return;
-                                        }
-                                    }
-
-                                    if (u == null && "PONG".equals(t)) {
-                                        if (masterSlaveEntry.slaveUp(entry, FreezeReason.RECONNECT)) {
-                                            log.info("slave {} has been successfully reconnected", entry.getClient().getAddr());
-                                        }
-                                    } else {
-                                        scheduleCheck(entry);
-                                    }
-                                } finally {
-                                    c.closeAsync();
+                    RFuture<String> f = c.async(RedisCommands.PING);
+                    f.onComplete((t, ex) -> {
+                        try {
+                            synchronized (entry) {
+                                if (entry.getFreezeReason() != FreezeReason.RECONNECT) {
+                                    return;
                                 }
                             }
-                        };
 
-                        RFuture<String> f = c.async(RedisCommands.PING);
-                        f.onComplete(pingListener);
-                });
-            }
+                            if ("PONG".equals(t)) {
+                                if (masterSlaveEntry.slaveUp(entry, FreezeReason.RECONNECT)) {
+                                    log.info("slave {} has been successfully reconnected", entry.getClient().getAddr());
+                                }
+                            } else {
+                                scheduleCheck(entry);
+                            }
+                        } finally {
+                            c.closeAsync();
+                        }
+                    });
+            });
         }, config.getFailedSlaveReconnectionInterval(), TimeUnit.MILLISECONDS);
     }
 

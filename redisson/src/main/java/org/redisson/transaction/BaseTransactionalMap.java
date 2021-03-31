@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,15 +47,7 @@ import org.redisson.transaction.operation.DeleteOperation;
 import org.redisson.transaction.operation.TouchOperation;
 import org.redisson.transaction.operation.TransactionalOperation;
 import org.redisson.transaction.operation.UnlinkOperation;
-import org.redisson.transaction.operation.map.MapAddAndGetOperation;
-import org.redisson.transaction.operation.map.MapFastPutIfAbsentOperation;
-import org.redisson.transaction.operation.map.MapFastPutOperation;
-import org.redisson.transaction.operation.map.MapFastRemoveOperation;
-import org.redisson.transaction.operation.map.MapOperation;
-import org.redisson.transaction.operation.map.MapPutIfAbsentOperation;
-import org.redisson.transaction.operation.map.MapPutOperation;
-import org.redisson.transaction.operation.map.MapRemoveOperation;
-import org.redisson.transaction.operation.map.MapReplaceOperation;
+import org.redisson.transaction.operation.map.*;
 
 import io.netty.buffer.ByteBuf;
 
@@ -286,7 +278,54 @@ public class BaseTransactionalMap<K, V> {
         });
         return result;
     }
-    
+
+    protected RFuture<V> putIfExistsOperationAsync(K key, V value) {
+        long threadId = Thread.currentThread().getId();
+        return putIfExistsOperationAsync(key, value, new MapPutIfExistsOperation(map, key, value, transactionId, threadId));
+    }
+
+    protected RFuture<V> putIfExistsOperationAsync(K key, V value, MapOperation mapOperation) {
+        RPromise<V> result = new RedissonPromise<V>();
+        executeLocked(result, key, new Runnable() {
+            @Override
+            public void run() {
+                HashValue keyHash = toKeyHash(key);
+                MapEntry entry = state.get(keyHash);
+                if (entry != null) {
+                    operations.add(mapOperation);
+                    if (entry != MapEntry.NULL) {
+                        state.put(keyHash, new MapEntry(key, value));
+                        if (deleted != null) {
+                            deleted = false;
+                        }
+
+                        result.trySuccess((V) entry.getValue());
+                    } else {
+                        result.trySuccess(null);
+                    }
+                    return;
+                }
+
+                map.getAsync(key).onComplete((res, e) -> {
+                    if (e != null) {
+                        result.tryFailure(e);
+                        return;
+                    }
+
+                    operations.add(mapOperation);
+                    if (res != null) {
+                        state.put(keyHash, new MapEntry(key, value));
+                        if (deleted != null) {
+                            deleted = false;
+                        }
+                    }
+                    result.trySuccess(res);
+                });
+            }
+        });
+        return result;
+    }
+
     protected RFuture<V> putIfAbsentOperationAsync(K key, V value) {
         long threadId = Thread.currentThread().getId();
         return putIfAbsentOperationAsync(key, value, new MapPutIfAbsentOperation(map, key, value, transactionId, threadId));
@@ -378,7 +417,54 @@ public class BaseTransactionalMap<K, V> {
         });
         return result;
     }
-    
+
+    protected RFuture<Boolean> fastPutIfExistsOperationAsync(K key, V value) {
+        long threadId = Thread.currentThread().getId();
+        return fastPutIfExistsOperationAsync(key, value, new MapFastPutIfExistsOperation(map, key, value, transactionId, threadId));
+    }
+
+    protected RFuture<Boolean> fastPutIfExistsOperationAsync(K key, V value, MapOperation mapOperation) {
+        RPromise<Boolean> result = new RedissonPromise<>();
+        executeLocked(result, key, new Runnable() {
+            @Override
+            public void run() {
+                HashValue keyHash = toKeyHash(key);
+                MapEntry entry = state.get(keyHash);
+                if (entry != null) {
+                    operations.add(mapOperation);
+                    if (entry != MapEntry.NULL) {
+                        state.put(keyHash, new MapEntry(key, value));
+                        if (deleted != null) {
+                            deleted = false;
+                        }
+
+                        result.trySuccess(true);
+                    } else {
+                        result.trySuccess(false);
+                    }
+                    return;
+                }
+
+                map.getAsync(key).onComplete((res, e) -> {
+                    if (e != null) {
+                        result.tryFailure(e);
+                        return;
+                    }
+
+                    operations.add(mapOperation);
+                    if (res != null) {
+                        state.put(keyHash, new MapEntry(key, value));
+                        if (deleted != null) {
+                            deleted = false;
+                        }
+                    }
+                    result.trySuccess(true);
+                });
+            }
+        });
+        return result;
+    }
+
     protected RFuture<Boolean> fastPutIfAbsentOperationAsync(K key, V value) {
         long threadId = Thread.currentThread().getId();
         return fastPutIfAbsentOperationAsync(key, value, new MapFastPutIfAbsentOperation(map, key, value, transactionId, threadId));

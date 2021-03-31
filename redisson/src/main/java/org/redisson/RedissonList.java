@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import org.redisson.misc.RPromise;
 import org.redisson.misc.RedissonPromise;
 
 import java.util.*;
+import java.util.function.Predicate;
 
 import static org.redisson.client.protocol.RedisCommands.*;
 
@@ -60,7 +61,7 @@ public class RedissonList<V> extends RedissonExpirable implements RList<V> {
 
     @Override
     public <KOut, VOut> RCollectionMapReduce<V, KOut, VOut> mapReduce() {
-        return new RedissonCollectionMapReduce<V, KOut, VOut>(this, redisson, commandExecutor.getConnectionManager());
+        return new RedissonCollectionMapReduce<V, KOut, VOut>(this, redisson, commandExecutor);
     }
     
     @Override
@@ -937,5 +938,8 @@ public class RedissonList<V> extends RedissonExpirable implements RList<V> {
         return result;
     }
 
-
+    @Override
+    public boolean removeIf(Predicate<? super V> filter) {
+        throw new UnsupportedOperationException();
+    }
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -476,6 +476,30 @@ public interface RedissonClient {
     RLock getLock(String name);
 
     /**
+     * Returns Spin lock instance by name.
+     * <p>
+     * Implements a <b>non-fair</b> locking so doesn't guarantees an acquire order by threads.
+     * <p>
+     * Lock doesn't use a pub/sub mechanism
+     *
+     * @param name - name of object
+     * @return Lock object
+     */
+    RLock getSpinLock(String name);
+
+    /**
+     * Returns Spin lock instance by name with specified back off options.
+     * <p>
+     * Implements a <b>non-fair</b> locking so doesn't guarantees an acquire order by threads.
+     * <p>
+     * Lock doesn't use a pub/sub mechanism
+     *
+     * @param name - name of object
+     * @return Lock object
+     */
+    RLock getSpinLock(String name, LockOptions.BackOff backOff);
+
+    /**
      * Returns MultiLock instance associated with specified <code>locks</code>
      * 
      * @param locks - collection of locks
@@ -587,7 +611,10 @@ public interface RedissonClient {
 
     /**
      * Returns topic instance by name.
-     * 
+     * <p>
+     * Messages are delivered to all listeners attached to the same Redis setup.
+     * <p>
+     *
      * @param name - name of object
      * @return Topic object
      */
@@ -596,12 +623,43 @@ public interface RedissonClient {
     /**
      * Returns topic instance by name
      * using provided codec for messages.
+     * <p>
+     * Messages are delivered to all listeners attached to the same Redis setup.
+     * <p>
      *
      * @param name - name of object
      * @param codec - codec for message
      * @return Topic object
      */
     RTopic getTopic(String name, Codec codec);
+
+    /**
+     * Returns reliable topic instance by name.
+     * <p>
+     * Dedicated Redis connection is allocated per instance (subscriber) of this object.
+     * Messages are delivered to all listeners attached to the same Redis setup.
+     * <p>
+     * Requires <b>Redis 5.0.0 and higher.</b>
+     *
+     * @param name - name of object
+     * @return ReliableTopic object
+     */
+    RReliableTopic getReliableTopic(String name);
+
+    /**
+     * Returns reliable topic instance by name
+     * using provided codec for messages.
+     * <p>
+     * Dedicated Redis connection is allocated per instance (subscriber) of this object.
+     * Messages are delivered to all listeners attached to the same Redis setup.
+     * <p>
+     * Requires <b>Redis 5.0.0 and higher.</b>
+     *
+     * @param name - name of object
+     * @param codec - codec for message
+     * @return ReliableTopic object
+     */
+    RReliableTopic getReliableTopic(String name, Codec codec);
 
     /**
      * Returns topic instance satisfies by pattern name.
@@ -939,6 +997,14 @@ public interface RedissonClient {
     <V> RBloomFilter<V> getBloomFilter(String name, Codec codec);
 
     /**
+     * Returns id generator by name.
+     *
+     * @param name - name of object
+     * @return IdGenerator object
+     */
+    RIdGenerator getIdGenerator(String name);
+
+    /**
      * Returns script operations object
      *
      * @return Script object
@@ -1070,7 +1136,21 @@ public interface RedissonClient {
      * @return LiveObjectService object
      */
     RLiveObjectService getLiveObjectService();
-    
+
+    /**
+     * Returns RxJava Redisson instance
+     *
+     * @return redisson instance
+     */
+    RedissonRxClient rxJava();
+
+    /**
+     * Returns Reactive Redisson instance
+     *
+     * @return redisson instance
+     */
+    RedissonReactiveClient reactive();
+
     /**
      * Shutdown Redisson instance but <b>NOT</b> Redis server
      * 

@@ -1,9 +1,12 @@
 # Redisson - Redis Java client<br/>with features of In-Memory Data Grid
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.redisson/redisson/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.redisson/redisson)
+[![JavaDoc](http://www.javadoc.io/badge/org.redisson/redisson.svg)](http://www.javadoc.io/doc/org.redisson/redisson)
+[![License](http://img.shields.io/:license-apache-brightgreen.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
 
 [Quick start](https://github.com/redisson/redisson#quick-start) | [Documentation](https://github.com/redisson/redisson/wiki/Table-of-Content) | [Javadocs](https://www.javadoc.io/doc/org.redisson/redisson/latest/index.html) | [Changelog](https://github.com/redisson/redisson/blob/master/CHANGELOG.md) | [Code examples](https://github.com/redisson/redisson-examples) | [FAQs](https://github.com/redisson/redisson/wiki/16.-FAQ) | [Report an issue](https://github.com/redisson/redisson/issues/new)
 
 Based on high-performance async and lock-free Java Redis client and [Netty](http://netty.io) framework.  
-JDK compatibility:  1.8 - 15, Android  
+JDK compatibility:  1.8 - 16, Android  
 
 ## Features
 
@@ -14,7 +17,7 @@ JDK compatibility:  1.8 - 15, Android
 * Redis single (including support of [Azure Redis Cache](https://azure.microsoft.com/en-us/services/cache/) and [Google Cloud Memorystore for Redis](https://cloud.google.com/memorystore/docs/redis/))  
 * Thread-safe implementation  
 * [Reactive Streams](https://github.com/redisson/redisson/wiki/3.-operations-execution#32-reactive-way) API  
-* [RxJava2](https://github.com/redisson/redisson/wiki/3.-operations-execution#32-reactive-way) API  
+* [RxJava3](https://github.com/redisson/redisson/wiki/3.-operations-execution#32-reactive-way) API  
 * [Asynchronous](https://github.com/redisson/redisson/wiki/3.-operations-execution#31-async-way) API  
 * Asynchronous connection pool  
 * Lua scripting  
@@ -99,14 +102,14 @@ Used by
     <dependency>
        <groupId>org.redisson</groupId>
        <artifactId>redisson</artifactId>
-       <version>3.13.5</version>
+       <version>3.15.3</version>
     </dependency>  
 
 #### Gradle
-    compile 'org.redisson:redisson:3.13.5'  
+    compile 'org.redisson:redisson:3.15.3'  
 
 #### SBT
-    libraryDependencies += "org.redisson" % "redisson" % "3.13.5"
+    libraryDependencies += "org.redisson" % "redisson" % "3.15.3"
 
 #### Java
 
@@ -128,10 +131,10 @@ config = Config.fromYAML(new File("config-file.yaml"));
 RedissonClient redisson = Redisson.create(config);
 
 // Reactive API
-RedissonReactiveClient redissonReactive = Redisson.createReactive(config);
+RedissonReactiveClient redissonReactive = redisson.reactive();
 
-// RxJava2 API
-RedissonRxClient redissonRx = Redisson.createRx(config);
+// RxJava3 API
+RedissonRxClient redissonRx = redisson.rxJava();
 ```
 
 ```java
@@ -164,8 +167,8 @@ Consider __[Redisson PRO](https://redisson.pro)__ version for advanced features 
 
 ## Downloads
    
-[Redisson 3.13.5](https://repository.sonatype.org/service/local/artifact/maven/redirect?r=central-proxy&g=org.redisson&a=redisson&v=3.13.5&e=jar),
-[Redisson node 3.13.5](https://repository.sonatype.org/service/local/artifact/maven/redirect?r=central-proxy&g=org.redisson&a=redisson-all&v=3.13.5&e=jar)  
+[Redisson 3.15.3](https://repository.sonatype.org/service/local/artifact/maven/redirect?r=central-proxy&g=org.redisson&a=redisson&v=3.15.3&e=jar),
+[Redisson node 3.15.3](https://repository.sonatype.org/service/local/artifact/maven/redirect?r=central-proxy&g=org.redisson&a=redisson-all&v=3.15.3&e=jar)  
 
 ## FAQs
 

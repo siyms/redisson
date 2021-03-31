@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,36 +15,35 @@
  */
 package org.redisson.client.protocol.decoder;
 
-import java.util.ArrayList;
-import java.util.List;
-
+import org.redisson.api.AutoClaimResult;
 import org.redisson.api.StreamMessageId;
+import org.redisson.client.codec.Codec;
 import org.redisson.client.handler.State;
 import org.redisson.client.protocol.Decoder;
-import org.redisson.client.protocol.convertor.StreamIdConvertor;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * 
  * @author Nikita Koksharov
  *
  */
-public class StreamIdListDecoder implements MultiDecoder<List<StreamMessageId>> {
+public class AutoClaimDecoder implements MultiDecoder<Object> {
 
-    private final StreamIdConvertor convertor = new StreamIdConvertor();
-    
     @Override
-    public Decoder<Object> getDecoder(int paramNum, State state) {
-        return null;
+    public Decoder<Object> getDecoder(Codec codec, int paramNum, State state) {
+        return new StreamIdDecoder();
     }
 
     @Override
-    public List<StreamMessageId> decode(List<Object> parts, State state) {
-        List<StreamMessageId> ids = new ArrayList<StreamMessageId>();
-        for (Object id : parts) {
-            StreamMessageId streamMessageId = convertor.convert(id);
-            ids.add(streamMessageId);
+    public Object decode(List<Object> parts, State state) {
+        if (parts.isEmpty()) {
+            return null;            
         }
-        return ids;
+        
+        Map<StreamMessageId, Map<Object, Object>> maps = (Map<StreamMessageId, Map<Object, Object>>) parts.get(1);
+        return new AutoClaimResult((StreamMessageId) parts.get(0), maps);
     }
 
 }

@@ -1,7 +1,9 @@
 package org.redisson;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -12,6 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -19,17 +22,29 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
-import org.redisson.api.RFuture;
-import org.redisson.api.RLexSortedSet;
-import org.redisson.api.RList;
-import org.redisson.api.RScoredSortedSet;
-import org.redisson.api.RSortedSet;
-import org.redisson.api.SortOrder;
+import org.redisson.api.*;
+import org.redisson.api.listener.ScoredSortedSetAddListener;
+import org.redisson.api.listener.SetObjectListener;
 import org.redisson.client.codec.IntegerCodec;
 import org.redisson.client.codec.StringCodec;
 import org.redisson.client.protocol.ScoredEntry;
+import org.redisson.config.Config;
 
 public class RedissonScoredSortedSetTest extends BaseTest {
+
+    @Test
+    public void testRandom() {
+        RScoredSortedSet<Integer> set = redisson.getScoredSortedSet("test");
+        set.add(1, 10);
+        set.add(2, 20);
+        set.add(3, 30);
+
+        assertThat(set.random()).isIn(10, 20, 30);
+        assertThat(set.random(2)).containsAnyOf(10, 20, 30).hasSize(2);
+
+        Map<Integer, Double> map = set.randomEntries(2);
+        assertThat(map).containsAnyOf(entry(10, 1D), entry(20, 2D), entry(30, 3D)).hasSize(2);
+    }
 
     @Test
     public void testTakeFirst() {
@@ -402,8 +417,18 @@ public class RedissonScoredSortedSetTest extends BaseTest {
     }
 
     @Test
+    public void testAddIfExists() {
+        RScoredSortedSet<String> set = redisson.getScoredSortedSet("simple");
+
+        assertThat(set.addIfExists(123.81, "1980")).isFalse();
+        assertThat(set.getScore("1980")).isNull();
+        set.add(111, "1980");
+        assertThat(set.addIfExists(32, "1980")).isFalse();
+        assertThat(set.getScore("1980")).isEqualTo(32);
+    }
+
+    @Test
     public void testTryAdd() {
-        Assume.assumeTrue(RedisRunner.getDefaultRedisServerInstance().getRedisVersion().compareTo("3.0.2") >= 0);
         RScoredSortedSet<String> set = redisson.getScoredSortedSet("simple");
 
         assertThat(set.tryAdd(123.81, "1980")).isTrue();
@@ -1298,6 +1323,22 @@ public class RedissonScoredSortedSetTest extends BaseTest {
     }
 
     @Test
+    public void testReadIntersection() {
+        RScoredSortedSet<String> set1 = redisson.getScoredSortedSet("simple1");
+        set1.add(1, "one");
+        set1.add(2, "two");
+        set1.add(2, "four");
+
+        RScoredSortedSet<String> set2 = redisson.getScoredSortedSet("simple2");
+        set2.add(1, "one");
+        set2.add(2, "two");
+        set2.add(3, "three");
+
+        RScoredSortedSet<String> out = redisson.getScoredSortedSet("simple1");
+        assertThat(out.readIntersection(set1.getName(), set2.getName())).containsOnly("one", "two");
+    }
+
+    @Test
     public void testIntersection() {
         RScoredSortedSet<String> set1 = redisson.getScoredSortedSet("simple1");
         set1.add(1, "one");
@@ -1333,6 +1374,38 @@ public class RedissonScoredSortedSetTest extends BaseTest {
     }
 
     @Test
+    public void testAddListener() throws RedisRunner.FailedToStartRedisException, IOException, InterruptedException {
+        RedisRunner.RedisProcess instance = new RedisRunner()
+                .nosave()
+                .randomPort()
+                .randomDir()
+                .notifyKeyspaceEvents(
+                                    RedisRunner.KEYSPACE_EVENTS_OPTIONS.E,
+                                    RedisRunner.KEYSPACE_EVENTS_OPTIONS.z)
+                .run();
+
+        Config config = new Config();
+        config.useSingleServer().setAddress(instance.getRedisServerAddressAndPort());
+        RedissonClient redisson = Redisson.create(config);
+
+        RScoredSortedSet<Integer> ss = redisson.getScoredSortedSet("test");
+        CountDownLatch latch = new CountDownLatch(1);
+        ss.addListener(new ScoredSortedSetAddListener() {
+            @Override
+            public void onAdd(String name) {
+                latch.countDown();
+            }
+        });
+        ss.add(1, 1);
+
+        assertThat(latch.await(1, TimeUnit.SECONDS)).isTrue();
+
+        redisson.shutdown();
+        instance.stop();
+    }
+
+
+    @Test
     public void testIntersectionWithWeight() {
         RScoredSortedSet<String> set1 = redisson.getScoredSortedSet("simple1");
         set1.add(1, "one");
@@ -1352,6 +1425,61 @@ public class RedissonScoredSortedSetTest extends BaseTest {
         assertThat(out.readAll()).containsOnly("one", "two");
         assertThat(out.getScore("one")).isEqualTo(5);
         assertThat(out.getScore("two")).isEqualTo(10);
+    }
+
+    @Test
+    public void testRangeTo() {
+        RScoredSortedSet<Integer> set1 = redisson.getScoredSortedSet("simple1");
+        for (int i = 0; i < 10; i++) {
+            set1.add(i, i);
+
+        }
+
+        set1.rangeTo("simple2", 0, 3);
+        RScoredSortedSet<Integer> set2 = redisson.getScoredSortedSet("simple2");
+        assertThat(set2.readAll()).containsOnly(0, 1, 2, 3);
+    }
+
+    @Test
+    public void testRevRange() {
+        RScoredSortedSet<Integer> set1 = redisson.getScoredSortedSet("simple1");
+        for (int i = 0; i < 10; i++) {
+            set1.add(i, i);
+
+        }
+
+        set1.revRangeTo("simple2", 3, true, 0, false);
+        RScoredSortedSet<Integer> set2 = redisson.getScoredSortedSet("simple2");
+        assertThat(set2.readAll()).containsOnly(3, 2, 1);
+    }
+
+    @Test
+    public void testRangeToScored() {
+        RScoredSortedSet<Integer> set1 = redisson.getScoredSortedSet("simple1");
+        for (int i = 0; i < 10; i++) {
+            set1.add(i, i);
+
+        }
+
+        set1.rangeTo("simple2", 0, false, 3, true);
+        RScoredSortedSet<Integer> set2 = redisson.getScoredSortedSet("simple2");
+        assertThat(set2.readAll()).containsOnly(1, 2, 3);
+    }
+
+    @Test
+    public void testReadUnion() {
+        RScoredSortedSet<String> set1 = redisson.getScoredSortedSet("simple1");
+        set1.add(1, "one");
+        set1.add(2, "two");
+        set1.add(4, "four");
+
+        RScoredSortedSet<String> set2 = redisson.getScoredSortedSet("simple2");
+        set2.add(1, "one");
+        set2.add(2, "two");
+        set2.add(3, "three");
+
+        RScoredSortedSet<String> out = redisson.getScoredSortedSet("simple1");
+        assertThat(out.readUnion(set1.getName(), set2.getName())).containsOnly("one", "two", "three", "four");
     }
 
     @Test

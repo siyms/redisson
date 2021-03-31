@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,12 +36,8 @@ import org.redisson.api.mapreduce.RCollectionMapReduce;
 import org.redisson.client.RedisClient;
 import org.redisson.client.codec.Codec;
 import org.redisson.client.protocol.RedisCommand;
-import org.redisson.client.protocol.RedisCommand.ValueType;
 import org.redisson.client.protocol.RedisCommands;
-import org.redisson.client.protocol.decoder.ListMultiDecoder2;
-import org.redisson.client.protocol.decoder.ListScanResult;
-import org.redisson.client.protocol.decoder.ListScanResultReplayDecoder;
-import org.redisson.client.protocol.decoder.ObjectListReplayDecoder;
+import org.redisson.client.protocol.decoder.*;
 import org.redisson.command.CommandAsyncExecutor;
 import org.redisson.iterator.RedissonBaseIterator;
 
@@ -55,7 +51,7 @@ import org.redisson.iterator.RedissonBaseIterator;
 public class RedissonSetMultimapValues<V> extends RedissonExpirable implements RSet<V> {
 
     private static final RedisCommand<ListScanResult<Object>> EVAL_SSCAN = new RedisCommand<ListScanResult<Object>>("EVAL", 
-                new ListMultiDecoder2(new ListScanResultReplayDecoder(), new ObjectListReplayDecoder()), ValueType.MAP_VALUE);
+                new ListMultiDecoder2(new ListScanResultReplayDecoder(), new MapValueDecoder(new ObjectListReplayDecoder())));
     
     private final RSet<V> set;
     private final Object key;
@@ -78,6 +74,16 @@ public class RedissonSetMultimapValues<V> extends RedissonExpirable implements R
         return null;
     }
     
+    @Override
+    public boolean tryAdd(V... values) {
+        return get(tryAddAsync(values));
+    }
+
+    @Override
+    public RFuture<Boolean> tryAddAsync(V... values) {
+        return set.tryAddAsync(values);
+    }
+
     @Override
     public RFuture<Boolean> clearExpireAsync() {
         throw new UnsupportedOperationException("This operation is not supported for SetMultimap values Set");

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,14 +63,14 @@ public class IdleConnectionWatcher {
 
             @Override
             public void run() {
-                long currTime = System.currentTimeMillis();
+                long currTime = System.nanoTime();
                 for (Entry entry : entries) {
                     if (!validateAmount(entry)) {
                         continue;
                     }
 
                     for (RedisConnection c : entry.connections) {
-                        long timeInPool = currTime - c.getLastUsageTime();
+                        long timeInPool = TimeUnit.NANOSECONDS.toMillis(currTime - c.getLastUsageTime());
                         if (timeInPool > config.getIdleConnectionTimeout()
                                 && validateAmount(entry)
                                     && entry.deleteHandler.apply(c)) {

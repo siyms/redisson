@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,11 +29,13 @@ import java.io.IOException;
 /**
  * Google's Snappy compression codec.
  * Uses inner <code>Codec</code> to convert object to binary stream.
- * <code>FstCodec</code> used by default.
+ * <code>MarshallingCodec</code> used by default.
  * <p>
  * Based on <a href="https://github.com/xerial/snappy-java">https://github.com/xerial/snappy-java</a>
  *
- * @see org.redisson.codec.FstCodec
+ * Fully thread-safe.
+ *
+ * @see org.redisson.codec.MarshallingCodec
  *
  * @author Nikita Koksharov
  *

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -144,7 +144,23 @@ public interface RMapAsync<K, V> extends RExpirableAsync {
      * @return void
      */
     RFuture<Void> putAllAsync(Map<? extends K, ? extends V> map, int batchSize);
-    
+
+    /**
+     * Returns random keys from this map limited by <code>count</code>
+     *
+     * @param count - keys amount to return
+     * @return random keys
+     */
+    RFuture<Set<K>> randomKeysAsync(int count);
+
+    /**
+     * Returns random map entries from this map limited by <code>count</code>
+     *
+     * @param count - entries amount to return
+     * @return random entries
+     */
+    RFuture<Map<K, V>> randomEntriesAsync(int count);
+
     /**
      * Adds the given <code>delta</code> to the current value
      * by mapped <code>key</code>.
@@ -251,6 +267,25 @@ public interface RMapAsync<K, V> extends RExpirableAsync {
      *         <code>false</code> if key already exists in the hash and change hasn't been made.
      */
     RFuture<Boolean> fastPutIfAbsentAsync(K key, V value);
+
+    /**
+     * Stores the specified <code>value</code> mapped by <code>key</code>
+     * only if mapping already exists.
+     * <p>
+     * Returns <code>true</code> if key is a new one in the hash and value was set or
+     * <code>false</code> if key already exists in the hash and change hasn't been made.
+     * <p>
+     * Works faster than <code>{@link #putIfExistsAsync(Object, Object)}</code> but doesn't return
+     * previous value associated with <code>key</code>
+     * <p>
+     * If {@link MapWriter} is defined then new map entry is stored in write-through mode.
+     *
+     * @param key - map key
+     * @param value - map value
+     * @return <code>true</code> if key already exists in the hash and new value has been stored.
+     *         <code>false</code> if key doesn't exist in the hash and value hasn't been set.
+     */
+    RFuture<Boolean> fastPutIfExistsAsync(K key, V value);
 
     /**
      * Read all keys at once
@@ -362,5 +397,18 @@ public interface RMapAsync<K, V> extends RExpirableAsync {
      *         Previous value if key already exists in the hash and change hasn't been made.
      */
     RFuture<V> putIfAbsentAsync(K key, V value);
+
+    /**
+     * Stores the specified <code>value</code> mapped by <code>key</code>
+     * only if mapping already exists.
+     * <p>
+     * If {@link MapWriter} is defined then new map entry is stored in write-through mode.
+     *
+     * @param key - map key
+     * @param value - map value
+     * @return <code>null</code> if key is doesn't exists in the hash and value hasn't been set.
+     *         Previous value if key already exists in the hash and new value has been stored.
+     */
+    RFuture<V> putIfExistsAsync(K key, V value);
 
 }

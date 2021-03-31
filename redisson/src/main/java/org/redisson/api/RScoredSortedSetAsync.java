@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -166,6 +166,36 @@ public interface RScoredSortedSetAsync<V> extends RExpirableAsync, RSortableAsyn
     RFuture<Double> lastScoreAsync();
 
     /**
+     * Returns random element from this sorted set
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @return value
+     */
+    RFuture<V> randomAsync();
+
+    /**
+     * Returns random elements from this sorted set limited by <code>count</code>
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param count - values amount to return
+     * @return value
+     */
+    RFuture<Collection<V>> randomAsync(int count);
+
+    /**
+     * Returns random entries from this sorted set limited by <code>count</code>.
+     * Each map entry uses element as key and score as value.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param count - entries amount to return
+     * @return random entries
+     */
+    RFuture<Map<V, Double>> randomEntriesAsync(int count);
+
+    /**
      * Adds all elements contained in the specified map to this sorted set.
      * Map contains of score mapped by object. 
      * 
@@ -287,6 +317,39 @@ public interface RScoredSortedSetAsync<V> extends RExpirableAsync, RSortableAsyn
     RFuture<Boolean> tryAddAsync(double score, V object);
 
     /**
+     * Adds element to this set only if it's already exists.
+     * <p>
+     * Requires <b>Redis 3.0.2 and higher.</b>
+     *
+     * @param score - object score
+     * @param object - object itself
+     * @return <code>true</code> if element added and <code>false</code> if not.
+     */
+    RFuture<Boolean> addIfExistsAsync(double score, V object);
+
+    /**
+     * Adds element to this set only if new score less than current score of existed element.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param score - object score
+     * @param object - object itself
+     * @return <code>true</code> if element added and <code>false</code> if not.
+     */
+    RFuture<Boolean> addIfLessAsync(double score, V object);
+
+    /**
+     * Adds element to this set only if new score greater than current score of existed element.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param score - object score
+     * @param object - object itself
+     * @return <code>true</code> if element added and <code>false</code> if not.
+     */
+    RFuture<Boolean> addIfGreaterAsync(double score, V object);
+
+    /**
      * Removes a single instance of the specified element from this
      * sorted set, if it is present.
      *
@@ -366,17 +429,115 @@ public interface RScoredSortedSetAsync<V> extends RExpirableAsync, RSortableAsyn
      * @return rank
      */
     RFuture<Integer> addScoreAndGetRankAsync(V object, Number value);
-    
+
+    /**
+     * Stores to defined ScoredSortedSet values by rank range. Indexes are zero based.
+     * <code>-1</code> means the highest score, <code>-2</code> means the second highest score.
+     *
+     * @param startIndex - start index
+     * @param endIndex - end index
+     * @return elements
+     */
+    RFuture<Integer> rangeToAsync(String destName, int startIndex, int endIndex);
+
+    /**
+     * Stores to defined ScoredSortedSet values between <code>startScore</code> and <code>endScore</code>.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param startScore - start score.
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     * @param startScoreInclusive - start score inclusive
+     * @param endScore - end score
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     *
+     * @param endScoreInclusive - end score inclusive
+     * @return values
+     */
+    RFuture<Integer> rangeToAsync(String destName, double startScore, boolean startScoreInclusive, double endScore, boolean endScoreInclusive);
+
+    /**
+     * Stores to defined ScoredSortedSet values between <code>startScore</code> and <code>endScore</code>.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param startScore - start score.
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     * @param startScoreInclusive - start score inclusive
+     * @param endScore - end score
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     *
+     * @param endScoreInclusive - end score inclusive
+     * @param offset - offset of sorted data
+     * @param count - amount of sorted data
+     * @return values
+     */
+    RFuture<Integer> rangeToAsync(String destName, double startScore, boolean startScoreInclusive, double endScore, boolean endScoreInclusive, int offset, int count);
+
+    /**
+     * Stores to defined ScoredSortedSet values in reversed order by rank range. Indexes are zero based.
+     * <code>-1</code> means the highest score, <code>-2</code> means the second highest score.
+     *
+     * @param startIndex - start index
+     * @param endIndex - end index
+     * @return elements
+     */
+    RFuture<Integer> revRangeToAsync(String destName, int startIndex, int endIndex);
+
+    /**
+     * Stores to defined ScoredSortedSet values in reversed order between <code>startScore</code> and <code>endScore</code>.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param startScore - start score.
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     * @param startScoreInclusive - start score inclusive
+     * @param endScore - end score
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     *
+     * @param endScoreInclusive - end score inclusive
+     * @return values
+     */
+    RFuture<Integer> revRangeToAsync(String destName, double startScore, boolean startScoreInclusive, double endScore, boolean endScoreInclusive);
+
+    /**
+     * Stores to defined ScoredSortedSet values in reversed order between <code>startScore</code> and <code>endScore</code>.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param startScore - start score.
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     * @param startScoreInclusive - start score inclusive
+     * @param endScore - end score
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     *
+     * @param endScoreInclusive - end score inclusive
+     * @param offset - offset of sorted data
+     * @param count - amount of sorted data
+     * @return values
+     */
+    RFuture<Integer> revRangeToAsync(String destName, double startScore, boolean startScoreInclusive, double endScore, boolean endScoreInclusive, int offset, int count);
+
     /**
      * Returns values by rank range. Indexes are zero based. 
      * <code>-1</code> means the highest score, <code>-2</code> means the second highest score.
-     * 
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
      * @param startIndex - start index 
      * @param endIndex - end index
      * @return elements
      */
     RFuture<Collection<V>> valueRangeAsync(int startIndex, int endIndex);
-    
+
     /**
      * Returns values by rank range in reverse order. Indexes are zero based. 
      * <code>-1</code> means the highest score, <code>-2</code> means the second highest score.
@@ -601,6 +762,53 @@ public interface RScoredSortedSetAsync<V> extends RExpirableAsync, RSortableAsyn
     RFuture<Integer> intersectionAsync(Aggregate aggregate, Map<String, Double> nameWithWeight);
 
     /**
+     * Intersect provided ScoredSortedSets
+     * with current ScoredSortedSet without state change
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param names - names of ScoredSortedSet
+     * @return result of intersection
+     */
+    RFuture<Collection<V>> readIntersectionAsync(String... names);
+
+    /**
+     * Intersect provided ScoredSortedSets with current ScoredSortedSet using defined aggregation method
+     * without state change
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param aggregate - score aggregation mode
+     * @param names - names of ScoredSortedSet
+     * @return result of intersection
+     */
+    RFuture<Collection<V>> readIntersectionAsync(Aggregate aggregate, String... names);
+
+    /**
+     * Intersect provided ScoredSortedSets mapped to weight multiplier
+     * with current ScoredSortedSet without state change
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param nameWithWeight - name of ScoredSortedSet mapped to weight multiplier
+     * @return result of intersection
+     */
+    RFuture<Collection<V>> readIntersectionAsync(Map<String, Double> nameWithWeight);
+
+    /**
+     * Intersect provided ScoredSortedSets mapped to weight multiplier
+     * with current ScoredSortedSet using defined aggregation method
+     * without state change
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param aggregate - score aggregation mode
+     * @param nameWithWeight - name of ScoredSortedSet mapped to weight multiplier
+     * @return result of intersection
+     */
+    RFuture<Collection<V>> readIntersectionAsync(Aggregate aggregate, Map<String, Double> nameWithWeight);
+
+    /**
      * Union provided ScoredSortedSets 
      * and store result to current ScoredSortedSet
      * 
@@ -638,5 +846,74 @@ public interface RScoredSortedSetAsync<V> extends RExpirableAsync, RSortableAsyn
      * @return length of union
      */
     RFuture<Integer> unionAsync(Aggregate aggregate, Map<String, Double> nameWithWeight);
-    
+
+    /**
+     * Union ScoredSortedSets specified by name with current ScoredSortedSet
+     * without state change.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param names - names of ScoredSortedSet
+     * @return result of union
+     */
+    RFuture<Collection<V>> readUnionAsync(String... names);
+
+    /**
+     * Union ScoredSortedSets specified by name with defined aggregation method
+     * and current ScoredSortedSet without state change.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param aggregate - score aggregation mode
+     * @param names - names of ScoredSortedSet
+     * @return result of union
+     */
+    RFuture<Collection<V>> readUnionAsync(Aggregate aggregate, String... names);
+
+    /**
+     * Union provided ScoredSortedSets mapped to weight multiplier
+     * and current ScoredSortedSet without state change.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param nameWithWeight - name of ScoredSortedSet mapped to weight multiplier
+     * @return result of union
+     */
+    RFuture<Collection<V>> readUnionAsync(Map<String, Double> nameWithWeight);
+
+    /**
+     * Union provided ScoredSortedSets mapped to weight multiplier
+     * with defined aggregation method
+     * and current ScoredSortedSet without state change
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param aggregate - score aggregation mode
+     * @param nameWithWeight - name of ScoredSortedSet mapped to weight multiplier
+     * @return result of union
+     */
+    RFuture<Collection<V>> readUnionAsync(Aggregate aggregate, Map<String, Double> nameWithWeight);
+
+    /**
+     * Diff ScoredSortedSets specified by name
+     * with current ScoredSortedSet without state change.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param names - name of sets
+     * @return result of diff
+     */
+    RFuture<Collection<V>> readDiffAsync(String... names);
+
+    /**
+     * Diff provided ScoredSortedSets
+     * and store result to current ScoredSortedSet
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param names - name of sets
+     * @return length of diff
+     */
+    RFuture<Integer> diffAsync(String... names);
+
 }

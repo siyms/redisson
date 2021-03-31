@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -285,7 +285,7 @@ public abstract class RedissonMultimap<K, V> extends RedissonExpirable implement
                 Arrays.asList(getName()), prefix, newPrefix, newName);
         f.onComplete((r, e) -> {
             if (e == null) {
-                this.name = newName;
+                setName(newName);
             }
         });
         return f;
@@ -322,7 +322,7 @@ public abstract class RedissonMultimap<K, V> extends RedissonExpirable implement
                 Arrays.asList(getName()), prefix, newPrefix, newName);
         f.onComplete((value, e) -> {
             if (e == null && value) {
-                this.name = newName;
+                setName(newName);
             }
         });
         return f;

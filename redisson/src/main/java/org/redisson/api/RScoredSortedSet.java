@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -205,6 +205,36 @@ public interface RScoredSortedSet<V> extends RScoredSortedSetAsync<V>, Iterable<
     Double lastScore();
 
     /**
+     * Returns random element from this sorted set
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @return random element
+     */
+    V random();
+
+    /**
+     * Returns random elements from this sorted set limited by <code>count</code>
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param count - values amount to return
+     * @return random elements
+     */
+    Collection<V> random(int count);
+
+    /**
+     * Returns random entries from this sorted set limited by <code>count</code>.
+     * Each map entry uses element as key and score as value.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param count - entries amount to return
+     * @return random entries
+     */
+    Map<V, Double> randomEntries(int count);
+
+    /**
      * Adds all elements contained in the specified map to this sorted set.
      * Map contains of score mapped by object. 
      * 
@@ -317,13 +347,46 @@ public interface RScoredSortedSet<V> extends RScoredSortedSetAsync<V>, Iterable<
     /**
      * Adds element to this set only if has not been added before.
      * <p>
-     * Works only with <b>Redis 3.0.2 and higher.</b>
+     * Requires <b>Redis 3.0.2 and higher.</b>
      *
      * @param score - object score
      * @param object - object itself
-     * @return <code>true</code> if element has added and <code>false</code> if not.
+     * @return <code>true</code> if element added and <code>false</code> if not.
      */
     boolean tryAdd(double score, V object);
+
+    /**
+     * Adds element to this set only if it's already exists.
+     * <p>
+     * Requires <b>Redis 3.0.2 and higher.</b>
+     *
+     * @param score - object score
+     * @param object - object itself
+     * @return <code>true</code> if element added and <code>false</code> if not.
+     */
+    boolean addIfExists(double score, V object);
+
+    /**
+     * Adds element to this set only if new score less than current score of existed element.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param score - object score
+     * @param object - object itself
+     * @return <code>true</code> if element added and <code>false</code> if not.
+     */
+    boolean addIfLess(double score, V object);
+
+    /**
+     * Adds element to this set only if new score greater than current score of existed element.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param score - object score
+     * @param object - object itself
+     * @return <code>true</code> if element added and <code>false</code> if not.
+     */
+    boolean addIfGreater(double score, V object);
 
     /**
      * Returns size of this set.
@@ -499,7 +562,107 @@ public interface RScoredSortedSet<V> extends RScoredSortedSetAsync<V>, Iterable<
      * @return reverse rank
      */
     Integer addScoreAndGetRevRank(V object, Number value);
-    
+
+    /**
+     * Stores to defined ScoredSortedSet values by rank range. Indexes are zero based.
+     * <code>-1</code> means the highest score, <code>-2</code> means the second highest score.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param startIndex - start index
+     * @param endIndex - end index
+     * @return elements
+     */
+    int rangeTo(String destName, int startIndex, int endIndex);
+
+    /**
+     * Stores to defined ScoredSortedSet values between <code>startScore</code> and <code>endScore</code>.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param startScore - start score.
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     * @param startScoreInclusive - start score inclusive
+     * @param endScore - end score
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     *
+     * @param endScoreInclusive - end score inclusive
+     * @return values
+     */
+    int rangeTo(String destName, double startScore, boolean startScoreInclusive, double endScore, boolean endScoreInclusive);
+
+    /**
+     * Stores to defined ScoredSortedSet values between <code>startScore</code> and <code>endScore</code>.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param startScore - start score.
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     * @param startScoreInclusive - start score inclusive
+     * @param endScore - end score
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     *
+     * @param endScoreInclusive - end score inclusive
+     * @param offset - offset of sorted data
+     * @param count - amount of sorted data
+     * @return values
+     */
+    int rangeTo(String destName, double startScore, boolean startScoreInclusive, double endScore, boolean endScoreInclusive, int offset, int count);
+
+    /**
+     * Stores to defined ScoredSortedSet values in reversed order by rank range. Indexes are zero based.
+     * <code>-1</code> means the highest score, <code>-2</code> means the second highest score.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param startIndex - start index
+     * @param endIndex - end index
+     * @return elements
+     */
+    int revRangeTo(String destName, int startIndex, int endIndex);
+
+    /**
+     * Stores to defined ScoredSortedSet values in reversed order between <code>startScore</code> and <code>endScore</code>.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param startScore - start score.
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     * @param startScoreInclusive - start score inclusive
+     * @param endScore - end score
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     *
+     * @param endScoreInclusive - end score inclusive
+     * @return values
+     */
+    int revRangeTo(String destName, double startScore, boolean startScoreInclusive, double endScore, boolean endScoreInclusive);
+
+    /**
+     * Stores to defined ScoredSortedSet values in reversed order between <code>startScore</code> and <code>endScore</code>.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param startScore - start score.
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     * @param startScoreInclusive - start score inclusive
+     * @param endScore - end score
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     *
+     * @param endScoreInclusive - end score inclusive
+     * @param offset - offset of sorted data
+     * @param count - amount of sorted data
+     * @return values
+     */
+    int revRangeTo(String destName, double startScore, boolean startScoreInclusive, double endScore, boolean endScoreInclusive, int offset, int count);
+
     /**
      * Returns values by rank range. Indexes are zero based. 
      * <code>-1</code> means the highest score, <code>-2</code> means the second highest score.
@@ -734,6 +897,53 @@ public interface RScoredSortedSet<V> extends RScoredSortedSetAsync<V>, Iterable<
     int intersection(Aggregate aggregate, Map<String, Double> nameWithWeight);
 
     /**
+     * Intersect provided ScoredSortedSets
+     * with current ScoredSortedSet without state change
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param names - names of ScoredSortedSet
+     * @return result of intersection
+     */
+    Collection<V> readIntersection(String... names);
+
+    /**
+     * Intersect provided ScoredSortedSets with current ScoredSortedSet using defined aggregation method
+     * without state change
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param aggregate - score aggregation mode
+     * @param names - names of ScoredSortedSet
+     * @return result of intersection
+     */
+    Collection<V> readIntersection(Aggregate aggregate, String... names);
+
+    /**
+     * Intersect provided ScoredSortedSets mapped to weight multiplier
+     * with current ScoredSortedSet without state change
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param nameWithWeight - name of ScoredSortedSet mapped to weight multiplier
+     * @return result of intersection
+     */
+    Collection<V> readIntersection(Map<String, Double> nameWithWeight);
+
+    /**
+     * Intersect provided ScoredSortedSets mapped to weight multiplier
+     * with current ScoredSortedSet using defined aggregation method
+     * without state change
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param aggregate - score aggregation mode
+     * @param nameWithWeight - name of ScoredSortedSet mapped to weight multiplier
+     * @return result of intersection
+     */
+    Collection<V> readIntersection(Aggregate aggregate, Map<String, Double> nameWithWeight);
+
+    /**
      * Union provided ScoredSortedSets 
      * and store result to current ScoredSortedSet
      * 
@@ -771,5 +981,74 @@ public interface RScoredSortedSet<V> extends RScoredSortedSetAsync<V>, Iterable<
      * @return length of union
      */
     int union(Aggregate aggregate, Map<String, Double> nameWithWeight);
-    
+
+    /**
+     * Union ScoredSortedSets specified by name with current ScoredSortedSet
+     * without state change.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param names - names of ScoredSortedSet
+     * @return result of union
+     */
+    Collection<V> readUnion(String... names);
+
+    /**
+     * Union ScoredSortedSets specified by name with defined aggregation method
+     * and current ScoredSortedSet without state change.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param aggregate - score aggregation mode
+     * @param names - names of ScoredSortedSet
+     * @return result of union
+     */
+    Collection<V> readUnion(Aggregate aggregate, String... names);
+
+    /**
+     * Union provided ScoredSortedSets mapped to weight multiplier
+     * and current ScoredSortedSet without state change.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param nameWithWeight - name of ScoredSortedSet mapped to weight multiplier
+     * @return result of union
+     */
+    Collection<V> readUnion(Map<String, Double> nameWithWeight);
+
+    /**
+     * Union provided ScoredSortedSets mapped to weight multiplier
+     * with defined aggregation method
+     * and current ScoredSortedSet without state change
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param aggregate - score aggregation mode
+     * @param nameWithWeight - name of ScoredSortedSet mapped to weight multiplier
+     * @return result of union
+     */
+    Collection<V> readUnion(Aggregate aggregate, Map<String, Double> nameWithWeight);
+
+    /**
+     * Diff ScoredSortedSets specified by name
+     * with current ScoredSortedSet without state change.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param names - name of sets
+     * @return result of diff
+     */
+    Collection<V> readDiff(String... names);
+
+    /**
+     * Diff provided ScoredSortedSets
+     * and store result to current ScoredSortedSet
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param names - name of sets
+     * @return length of diff
+     */
+    int diff(String... names);
+
 }

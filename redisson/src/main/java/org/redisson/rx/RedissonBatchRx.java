@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 package org.redisson.rx;
 
-import io.reactivex.Maybe;
+import io.reactivex.rxjava3.core.Maybe;
 import org.redisson.*;
 import org.redisson.api.*;
 import org.redisson.client.codec.Codec;
@@ -35,7 +35,7 @@ public class RedissonBatchRx implements RBatchRx {
 
     public RedissonBatchRx(EvictionScheduler evictionScheduler, ConnectionManager connectionManager, CommandRxExecutor commandExecutor, BatchOptions options) {
         this.evictionScheduler = evictionScheduler;
-        this.executorService = new CommandRxBatchService(connectionManager, options);
+        this.executorService = new CommandRxBatchService(connectionManager, commandExecutor, options);
         this.commandExecutor = commandExecutor;
     }
 
@@ -100,15 +100,15 @@ public class RedissonBatchRx implements RBatchRx {
     @Override
     public <K, V> RMapCacheRx<K, V> getMapCache(String name, Codec codec) {
         RMapCache<K, V> map = new RedissonMapCache<K, V>(codec, evictionScheduler, executorService, name, null, null, null);
-        return RxProxyBuilder.create(executorService, map, 
-                new RedissonMapCacheRx<K, V>(map), RMapCacheRx.class);
+        return RxProxyBuilder.create(executorService, map,
+                new RedissonMapCacheRx<>(map, commandExecutor), RMapCacheRx.class);
     }
 
     @Override
     public <K, V> RMapCacheRx<K, V> getMapCache(String name) {
         RMapCache<K, V> map = new RedissonMapCache<K, V>(evictionScheduler, executorService, name, null, null, null);
-        return RxProxyBuilder.create(executorService, map, 
-                new RedissonMapCacheRx<K, V>(map), RMapCacheRx.class);
+        return RxProxyBuilder.create(executorService, map,
+                new RedissonMapCacheRx<>(map, commandExecutor), RMapCacheRx.class);
     }
 
     @Override
@@ -243,10 +243,6 @@ public class RedissonBatchRx implements RBatchRx {
         return commandExecutor.flowable(() -> executorService.executeAsync()).singleElement();
     }
     
-    public void enableRedissonReferenceSupport(RedissonRxClient redissonRx) {
-        this.executorService.enableRedissonReferenceSupport(redissonRx);
-    }
-
     @Override
     public <V> RGeoRx<V> getGeo(String name) {
         RedissonGeo<V> geo = new RedissonGeo<V>(executorService, name, null);
@@ -263,26 +259,58 @@ public class RedissonBatchRx implements RBatchRx {
 
     @Override
     public <K, V> RSetMultimapRx<K, V> getSetMultimap(String name) {
-        return RxProxyBuilder.create(executorService, new RedissonSetMultimap<K, V>(executorService, name), 
-                new RedissonSetMultimapRx<K, V>(executorService, name, null), RSetMultimapRx.class);
+        RedissonSetMultimap<K, V> setMultimap = new RedissonSetMultimap<>(executorService, name);
+        return RxProxyBuilder.create(executorService, setMultimap,
+                new RedissonSetMultimapRx<K, V>(setMultimap, executorService, null), RSetMultimapRx.class);
     }
 
     @Override
     public <K, V> RSetMultimapRx<K, V> getSetMultimap(String name, Codec codec) {
-        return RxProxyBuilder.create(executorService, new RedissonSetMultimap<K, V>(codec, executorService, name), 
-                new RedissonSetMultimapRx<K, V>(codec, executorService, name, null), RSetMultimapRx.class);
+        RedissonSetMultimap<K, V> setMultimap = new RedissonSetMultimap<>(codec, executorService, name);
+        return RxProxyBuilder.create(executorService, setMultimap,
+                new RedissonSetMultimapRx<K, V>(setMultimap, executorService, null), RSetMultimapRx.class);
+    }
+
+    @Override
+    public <K, V> RSetMultimapCacheRx<K, V> getSetMultimapCache(String name) {
+        RedissonSetMultimapCache<K, V> setMultimap = new RedissonSetMultimapCache<>(evictionScheduler, executorService, name);
+        return RxProxyBuilder.create(executorService, setMultimap,
+                new RedissonSetMultimapCacheRx<K, V>(setMultimap, executorService, null), RSetMultimapCacheRx.class);
+    }
+
+    @Override
+    public <K, V> RSetMultimapCacheRx<K, V> getSetMultimapCache(String name, Codec codec) {
+        RedissonSetMultimapCache<K, V> setMultimap = new RedissonSetMultimapCache<>(evictionScheduler, codec, executorService, name);
+        return RxProxyBuilder.create(executorService, setMultimap,
+                new RedissonSetMultimapCacheRx<K, V>(setMultimap, executorService, null), RSetMultimapCacheRx.class);
     }
 
     @Override
     public <K, V> RListMultimapRx<K, V> getListMultimap(String name) {
-        return RxProxyBuilder.create(executorService, new RedissonListMultimap<K, V>(executorService, name), 
-                new RedissonListMultimapRx<K, V>(executorService, name), RListMultimapRx.class);
+        RedissonListMultimap<K, V> listMultimap = new RedissonListMultimap<>(executorService, name);
+        return RxProxyBuilder.create(executorService, listMultimap,
+                new RedissonListMultimapRx<K, V>(listMultimap, executorService), RListMultimapRx.class);
     }
 
     @Override
     public <K, V> RListMultimapRx<K, V> getListMultimap(String name, Codec codec) {
-        return RxProxyBuilder.create(executorService, new RedissonListMultimap<K, V>(codec, executorService, name), 
-                new RedissonListMultimapRx<K, V>(codec, executorService, name), RListMultimapRx.class);
+        RedissonListMultimap<K, V> listMultimap = new RedissonListMultimap<>(codec, executorService, name);
+        return RxProxyBuilder.create(executorService, listMultimap,
+                new RedissonListMultimapRx<K, V>(listMultimap, executorService), RListMultimapRx.class);
+    }
+
+    @Override
+    public <K, V> RListMultimapCacheRx<K, V> getListMultimapCache(String name) {
+        RedissonListMultimapCache<K, V> listMultimap = new RedissonListMultimapCache<>(evictionScheduler, executorService, name);
+        return RxProxyBuilder.create(executorService, listMultimap,
+                new RedissonListMultimapCacheRx<K, V>(listMultimap, executorService), RListMultimapCacheRx.class);
+    }
+
+    @Override
+    public <K, V> RListMultimapCacheRx<K, V> getListMultimapCache(String name, Codec codec) {
+        RedissonListMultimapCache<K, V> listMultimap = new RedissonListMultimapCache<>(evictionScheduler, codec, executorService, name);
+        return RxProxyBuilder.create(executorService, listMultimap,
+                new RedissonListMultimapCacheRx<K, V>(listMultimap, executorService), RListMultimapCacheRx.class);
     }
 
     @Override

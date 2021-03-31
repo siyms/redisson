@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,6 +49,10 @@ import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.ByteBufOutputStream;
 
 /**
+ * Json codec based on Jackson implementation.
+ * https://github.com/FasterXML/jackson
+ * <p>
+ * Fully thread-safe.
  *
  * @see org.redisson.codec.CborJacksonCodec
  * @see org.redisson.codec.MsgPackJacksonCodec

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,6 +56,8 @@ public class ClientConnectionsEntry {
 
     private final AtomicLong firstFailTime = new AtomicLong(0);
 
+    private volatile boolean initialized = false;
+
     public ClientConnectionsEntry(RedisClient client, int poolMinSize, int poolMaxSize, int subscribePoolMinSize, int subscribePoolMaxSize,
             ConnectionManager connectionManager, NodeType nodeType) {
         this.client = client;
@@ -81,10 +83,19 @@ public class ClientConnectionsEntry {
                         && connectionManager.getConfig().getReadMode() == ReadMode.MASTER_SLAVE
                             && getNodeType() == NodeType.MASTER;
     }
+
+    public boolean isInitialized() {
+        return this.initialized;
+    }
+
+    public void setInitialized(boolean isInited) {
+        this.initialized = isInited;
+    }
     
     public void setNodeType(NodeType nodeType) {
         this.nodeType = nodeType;
     }
+
     public NodeType getNodeType() {
         return nodeType;
     }
@@ -114,6 +125,9 @@ public class ClientConnectionsEntry {
 
     public void setFreezeReason(FreezeReason freezeReason) {
         this.freezeReason = freezeReason;
+        if (freezeReason != null) {
+            this.initialized = false;
+        }
     }
 
     public FreezeReason getFreezeReason() {
@@ -155,7 +169,7 @@ public class ClientConnectionsEntry {
             return;
         }
 
-        connection.setLastUsageTime(System.currentTimeMillis());
+        connection.setLastUsageTime(System.nanoTime());
         freeConnections.add(connection);
     }
 
@@ -233,7 +247,7 @@ public class ClientConnectionsEntry {
             return;
         }
         
-        connection.setLastUsageTime(System.currentTimeMillis());
+        connection.setLastUsageTime(System.nanoTime());
         freeSubscribeConnections.add(connection);
     }
 

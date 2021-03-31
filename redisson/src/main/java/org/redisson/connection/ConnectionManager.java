@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,29 +15,28 @@
  */
 package org.redisson.connection;
 
-import java.net.InetSocketAddress;
-import java.util.Collection;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-
+import io.netty.channel.EventLoopGroup;
+import io.netty.util.Timeout;
+import io.netty.util.TimerTask;
+import io.netty.util.concurrent.Future;
 import org.redisson.ElementsSubscribeService;
 import org.redisson.api.NodeType;
 import org.redisson.api.RFuture;
 import org.redisson.client.RedisClient;
 import org.redisson.client.RedisConnection;
+import org.redisson.client.RedisNodeNotFoundException;
 import org.redisson.client.codec.Codec;
 import org.redisson.client.protocol.RedisCommand;
-import org.redisson.command.CommandSyncService;
 import org.redisson.config.Config;
 import org.redisson.config.MasterSlaveServersConfig;
 import org.redisson.misc.InfinitySemaphoreLatch;
 import org.redisson.misc.RedisURI;
 import org.redisson.pubsub.PublishSubscribeService;
 
-import io.netty.channel.EventLoopGroup;
-import io.netty.util.Timeout;
-import io.netty.util.TimerTask;
-import io.netty.util.concurrent.Future;
+import java.net.InetSocketAddress;
+import java.util.Collection;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  *
@@ -50,8 +49,6 @@ public interface ConnectionManager {
     
     String getId();
     
-    CommandSyncService getCommandExecutor();
-
     ElementsSubscribeService getElementsSubscribeService();
 
     PublishSubscribeService getSubscribeService();
@@ -115,5 +112,7 @@ public interface ConnectionManager {
     InfinitySemaphoreLatch getShutdownLatch();
     
     Future<Void> getShutdownPromise();
+
+    RedisNodeNotFoundException createNodeNotFoundException(NodeSource source);
 
 }

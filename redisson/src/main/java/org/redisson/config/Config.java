@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,7 @@ import org.redisson.client.DefaultNettyHook;
 import org.redisson.client.NettyHook;
 import org.redisson.client.codec.Codec;
 import org.redisson.codec.MarshallingCodec;
-import org.redisson.connection.AddressResolverGroupFactory;
-import org.redisson.connection.ConnectionManager;
-import org.redisson.connection.DnsAddressResolverGroupFactory;
-import org.redisson.connection.ReplicatedConnectionManager;
+import org.redisson.connection.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +30,7 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.net.URL;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Redisson configuration
@@ -56,24 +54,14 @@ public class Config {
 
     private ConnectionManager connectionManager;
 
-    /**
-     * Threads amount shared between all redis node clients
-     */
     private int threads = 16;
 
     private int nettyThreads = 32;
 
-    /**
-     * Redis key/value codec. FST codec is used by default
-     */
     private Codec codec;
 
     private ExecutorService executor;
 
-    /**
-     * Config option for enabling Redisson Reference feature.
-     * Default value is TRUE
-     */
     private boolean referenceEnabled = true;
 
     private TransportMode transportMode = TransportMode.NIO;
@@ -82,9 +70,9 @@ public class Config {
 
     private long lockWatchdogTimeout = 30 * 1000;
 
-    private boolean keepPubSubOrder = true;
+    private long reliableTopicWatchdogTimeout = TimeUnit.MINUTES.toMillis(10);
 
-    private boolean decodeInExecutor = false;
+    private boolean keepPubSubOrder = true;
 
     private boolean useScriptCache = false;
 
@@ -96,11 +84,10 @@ public class Config {
 
     private NettyHook nettyHook = new DefaultNettyHook();
 
+    private ConnectionListener connectionListener;
+
     private boolean useThreadClassLoader = true;
 
-    /**
-     * AddressResolverGroupFactory switch between default and round robin
-     */
     private AddressResolverGroupFactory addressResolverGroupFactory = new DnsAddressResolverGroupFactory();
 
     public Config() {
@@ -115,11 +102,11 @@ public class Config {
             oldConf.setCodec(new MarshallingCodec());
         }
 
+        setConnectionListener(oldConf.getConnectionListener());
         setUseThreadClassLoader(oldConf.isUseThreadClassLoader());
         setMinCleanUpDelay(oldConf.getMinCleanUpDelay());
         setMaxCleanUpDelay(oldConf.getMaxCleanUpDelay());
         setCleanUpKeysAmount(oldConf.getCleanUpKeysAmount());
-        setDecodeInExecutor(oldConf.isDecodeInExecutor());
         setUseScriptCache(oldConf.isUseScriptCache());
         setKeepPubSubOrder(oldConf.isKeepPubSubOrder());
         setLockWatchdogTimeout(oldConf.getLockWatchdogTimeout());
@@ -130,6 +117,7 @@ public class Config {
         setEventLoopGroup(oldConf.getEventLoopGroup());
         setTransportMode(oldConf.getTransportMode());
         setAddressResolverGroupFactory(oldConf.getAddressResolverGroupFactory());
+        setReliableTopicWatchdogTimeout(oldConf.getReliableTopicWatchdogTimeout());
 
         if (oldConf.getSingleServerConfig() != null) {
             setSingleServerConfig(new SingleServerConfig(oldConf.getSingleServerConfig()));
@@ -168,9 +156,10 @@ public class Config {
     }
 
     /**
-     * Redis key/value codec. Default is FST codec
+     * Redis data codec. Default is MarshallingCodec codec
      *
      * @see org.redisson.client.codec.Codec
+     * @see org.redisson.codec.MarshallingCodec
      * 
      * @param codec object
      * @return config
@@ -699,9 +688,6 @@ public class Config {
      * Most Redisson methods are Lua-script based and this setting turned
      * on could increase speed of such methods execution and save network traffic.
      * <p>
-     * NOTE: <code>readMode</code> option is not taken into account for such calls 
-     * as Redis slave redirects execution of cached Lua-script on Redis master node. 
-     * <p>
      * Default is <code>false</code>.
      * 
      * @param useScriptCache - <code>true</code> if Lua-script caching is required, <code>false</code> otherwise.
@@ -714,25 +700,6 @@ public class Config {
 
     public boolean isUseScriptCache() {
         return useScriptCache;
-    }
-
-    public boolean isDecodeInExecutor() {
-        return decodeInExecutor;
-    }
-
-    /**
-     * Defines whether to decode data by <code>codec</code> in executor's threads or netty's threads. 
-     * If decoding data process takes long time and netty thread is used then `RedisTimeoutException` could arise time to time.
-     * <p>
-     * Default is <code>false</code>.
-     * 
-     * @param decodeInExecutor - <code>true</code> to use executor's threads, <code>false</code> to use netty's threads.
-     * @return config
-     */
-    @Deprecated
-    public Config setDecodeInExecutor(boolean decodeInExecutor) {
-        this.decodeInExecutor = decodeInExecutor;
-        return this;
     }
 
     public int getMinCleanUpDelay() {
@@ -808,6 +775,43 @@ public class Config {
      */
     public Config setUseThreadClassLoader(boolean useThreadClassLoader) {
         this.useThreadClassLoader = useThreadClassLoader;
+        return this;
+    }
+
+    public long getReliableTopicWatchdogTimeout() {
+        return reliableTopicWatchdogTimeout;
+    }
+
+    /**
+     * Reliable Topic subscriber expires after <code>timeout</code> if watchdog
+     * didn't extend it to next <code>timeout</code> time interval.
+     * <p>
+     * This prevents against infinity grow of stored messages in topic due to Redisson client crush or
+     * any other reason when subscriber can't consumer messages anymore.
+     * <p>
+     * Default is 600000 milliseconds
+     *
+     * @param timeout timeout in milliseconds
+     * @return config
+     */
+    public Config setReliableTopicWatchdogTimeout(long timeout) {
+        this.reliableTopicWatchdogTimeout = timeout;
+        return this;
+    }
+
+    public ConnectionListener getConnectionListener() {
+        return connectionListener;
+    }
+
+    /**
+     * Sets connection listener which is triggered
+     * when Redisson connected/disconnected to Redis server
+     *
+     * @param connectionListener - connection listener
+     * @return config
+     */
+    public Config setConnectionListener(ConnectionListener connectionListener) {
+        this.connectionListener = connectionListener;
         return this;
     }
 }

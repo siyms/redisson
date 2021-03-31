@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import org.redisson.client.codec.StringCodec;
 import org.redisson.client.protocol.RedisCommands;
 import org.redisson.client.protocol.Time;
 import org.redisson.cluster.ClusterSlotRange;
-import org.redisson.command.CommandSyncService;
+import org.redisson.command.CommandAsyncExecutor;
 import org.redisson.misc.RPromise;
 import org.redisson.misc.RedisURI;
 import org.redisson.misc.RedissonPromise;
@@ -47,10 +47,10 @@ public class RedisNode implements RedisClusterMaster, RedisClusterSlave, RedisMa
                                         RedisMasterAsync, RedisSlaveAsync {
 
     final RedisClient client;
-    final CommandSyncService commandExecutor;
+    final CommandAsyncExecutor commandExecutor;
     private final NodeType type;
 
-    public RedisNode(RedisClient client, CommandSyncService commandExecutor, NodeType type) {
+    public RedisNode(RedisClient client, CommandAsyncExecutor commandExecutor, NodeType type) {
         super();
         this.client = client;
         this.commandExecutor = commandExecutor;
@@ -219,6 +219,16 @@ public class RedisNode implements RedisClusterMaster, RedisClusterSlave, RedisMa
     @Override
     public Map<String, String> info(org.redisson.api.redisnode.RedisNode.InfoSection section) {
         return commandExecutor.get(infoAsync(section));
+    }
+
+    @Override
+    public Map<String, String> getMemoryStatistics() {
+        return commandExecutor.get(getMemoryStatisticsAsync());
+    }
+
+    @Override
+    public RFuture<Map<String, String>> getMemoryStatisticsAsync() {
+        return commandExecutor.readAsync(client, StringCodec.INSTANCE, RedisCommands.MEMORY_STATS);
     }
 
     @Override

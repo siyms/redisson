@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,11 +31,11 @@ public class RedissonBatchReactive implements RBatchReactive {
 
     private final EvictionScheduler evictionScheduler;
     private final CommandReactiveBatchService executorService;
-    private final CommandReactiveService commandExecutor;
+    private final CommandReactiveExecutor commandExecutor;
 
-    public RedissonBatchReactive(EvictionScheduler evictionScheduler, ConnectionManager connectionManager, CommandReactiveService commandExecutor, BatchOptions options) {
+    public RedissonBatchReactive(EvictionScheduler evictionScheduler, ConnectionManager connectionManager, CommandReactiveExecutor commandExecutor, BatchOptions options) {
         this.evictionScheduler = evictionScheduler;
-        this.executorService = new CommandReactiveBatchService(connectionManager, options);
+        this.executorService = new CommandReactiveBatchService(connectionManager, commandExecutor, options);
         this.commandExecutor = commandExecutor;
     }
 
@@ -83,30 +83,30 @@ public class RedissonBatchReactive implements RBatchReactive {
 
     @Override
     public <K, V> RMapReactive<K, V> getMap(String name) {
-        RedissonMap<K, V> map = new RedissonMap<K, V>(executorService, name, null, null, null);
-        return ReactiveProxyBuilder.create(executorService, map, 
-                new RedissonMapReactive<K, V>(map, null), RMapReactive.class);
+        RMap<K, V> map = new RedissonMap<K, V>(executorService, name, null, null, null);
+        return ReactiveProxyBuilder.create(executorService, map,
+                new RedissonMapReactive<>(map, executorService), RMapReactive.class);
     }
 
     @Override
     public <K, V> RMapReactive<K, V> getMap(String name, Codec codec) {
-        RedissonMap<K, V> map = new RedissonMap<K, V>(codec, executorService, name, null, null, null);
-        return ReactiveProxyBuilder.create(executorService, map, 
-                new RedissonMapReactive<K, V>(map, null), RMapReactive.class);
+        RedissonMap<K, V> map = new RedissonMap<>(codec, executorService, name, null, null, null);
+        return ReactiveProxyBuilder.create(executorService, map,
+                new RedissonMapReactive<>(map, executorService), RMapReactive.class);
     }
 
     @Override
     public <K, V> RMapCacheReactive<K, V> getMapCache(String name, Codec codec) {
         RMapCache<K, V> map = new RedissonMapCache<K, V>(codec, evictionScheduler, executorService, name, null, null, null);
         return ReactiveProxyBuilder.create(executorService, map, 
-                new RedissonMapCacheReactive<K, V>(map), RMapCacheReactive.class);
+                new RedissonMapCacheReactive<K, V>(map, commandExecutor), RMapCacheReactive.class);
     }
 
     @Override
     public <K, V> RMapCacheReactive<K, V> getMapCache(String name) {
         RMapCache<K, V> map = new RedissonMapCache<K, V>(evictionScheduler, executorService, name, null, null, null);
         return ReactiveProxyBuilder.create(executorService, map, 
-                new RedissonMapCacheReactive<K, V>(map), RMapCacheReactive.class);
+                new RedissonMapCacheReactive<K, V>(map, commandExecutor), RMapCacheReactive.class);
     }
 
     @Override
@@ -231,10 +231,6 @@ public class RedissonBatchReactive implements RBatchReactive {
     @Override
     public Mono<BatchResult<?>> execute() {
         return commandExecutor.reactive(() -> executorService.executeAsync());
-    }
-
-    public void enableRedissonReferenceSupport(RedissonReactiveClient redissonReactive) {
-        this.executorService.enableRedissonReferenceSupport(redissonReactive);
     }
 
     @Override

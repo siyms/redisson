@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -159,6 +159,8 @@ public final class RedisClient {
     public RedisConnection connect() {
         try {
             return connectAsync().syncUninterruptibly().getNow();
+        } catch (RedisException e) {
+            throw e;
         } catch (Exception e) {
             throw new RedisConnectionException("Unable to connect to: " + uri, e);
         }
@@ -259,6 +261,8 @@ public final class RedisClient {
     public RedisPubSubConnection connectPubSub() {
         try {
             return connectPubSubAsync().syncUninterruptibly().getNow();
+        } catch (RedisException e) {
+            throw e;
         } catch (Exception e) {
             throw new RedisConnectionException("Unable to connect to: " + uri, e);
         }
@@ -321,7 +325,7 @@ public final class RedisClient {
 
     public RFuture<Void> shutdownAsync() {
         RPromise<Void> result = new RedissonPromise<Void>();
-        if (channels.isEmpty()) {
+        if (channels.isEmpty() || config.getGroup().isShuttingDown()) {
             shutdown(result);
             return result;
         }

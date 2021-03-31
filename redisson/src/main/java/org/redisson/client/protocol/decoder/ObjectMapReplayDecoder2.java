@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,13 @@
  */
 package org.redisson.client.protocol.decoder;
 
+import org.redisson.client.handler.State;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import org.redisson.client.handler.State;
-import org.redisson.client.protocol.Decoder;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * 
@@ -32,16 +33,10 @@ public class ObjectMapReplayDecoder2 implements MultiDecoder<Map<Object, Object>
     @Override
     public Map<Object, Object> decode(List<Object> parts, State state) {
         List<List<Object>> list = (List<List<Object>>) (Object) parts;
-        Map<Object, Object> result = new LinkedHashMap<Object, Object>(parts.size()/2);
-        for (List<Object> entry : list) {
-            result.put(entry.get(0), entry.get(1));
-        }
-        return result;
-    }
-
-    @Override
-    public Decoder<Object> getDecoder(int paramNum, State state) {
-        return null;
+        return list.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(e -> e.get(0), e -> e.get(1),
+                        (a, b) -> a, LinkedHashMap::new));
     }
 
 }

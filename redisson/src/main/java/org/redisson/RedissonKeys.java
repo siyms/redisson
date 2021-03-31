@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,6 +62,10 @@ public class RedissonKeys implements RKeys {
     public RedissonKeys(CommandAsyncExecutor commandExecutor) {
         super();
         this.commandExecutor = commandExecutor;
+    }
+
+    public CommandAsyncExecutor getCommandExecutor() {
+        return commandExecutor;
     }
 
     public ConnectionManager getConnectionManager() {
@@ -228,6 +232,10 @@ public class RedissonKeys implements RKeys {
         if (commandExecutor instanceof CommandBatchService
                 || commandExecutor instanceof CommandReactiveBatchService
                     || commandExecutor instanceof CommandRxBatchService) {
+            if (getConnectionManager().isClusterMode()) {
+                throw new IllegalStateException("This method doesn't work in batch for Redis cluster mode. For Redis cluster execute it as non-batch method");
+            }
+
             return commandExecutor.evalWriteAsync((String) null, null, RedisCommands.EVAL_LONG, 
                             "local keys = redis.call('keys', ARGV[1]) "
                               + "local n = 0 "

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import org.redisson.client.codec.StringCodec;
 import org.redisson.client.protocol.RedisCommand;
 import org.redisson.client.protocol.RedisCommands;
 import org.redisson.client.protocol.Time;
-import org.redisson.command.CommandAsyncService;
+import org.redisson.command.CommandAsyncExecutor;
 import org.redisson.misc.RPromise;
 import org.redisson.misc.RedissonPromise;
 
@@ -43,9 +43,9 @@ import java.util.concurrent.TimeUnit;
 public class SentinelRedisNode implements RedisSentinel, RedisSentinelAsync {
 
     private final RedisClient client;
-    private final CommandAsyncService commandAsyncService;
+    private final CommandAsyncExecutor commandAsyncService;
 
-    public SentinelRedisNode(RedisClient client, CommandAsyncService commandAsyncService) {
+    public SentinelRedisNode(RedisClient client, CommandAsyncExecutor commandAsyncService) {
         super();
         this.client = client;
         this.commandAsyncService = commandAsyncService;
@@ -58,6 +58,16 @@ public class SentinelRedisNode implements RedisSentinel, RedisSentinelAsync {
     @Override
     public InetSocketAddress getAddr() {
         return client.getAddr();
+    }
+
+    @Override
+    public Map<String, String> getMemoryStatistics() {
+        return getMemoryStatisticsAsync().syncUninterruptibly().getNow();
+    }
+
+    @Override
+    public RFuture<Map<String, String>> getMemoryStatisticsAsync() {
+        return executeAsync(null, StringCodec.INSTANCE, -1, RedisCommands.MEMORY_STATS);
     }
 
     @Override

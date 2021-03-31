@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,48 +13,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.redisson.client.protocol.decoder;
+package org.redisson.spring.data.connection;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.redisson.client.codec.Codec;
 import org.redisson.client.codec.DoubleCodec;
 import org.redisson.client.handler.State;
 import org.redisson.client.protocol.Decoder;
+import org.redisson.client.protocol.decoder.MultiDecoder;
+import org.springframework.data.geo.Point;
 
 /**
  * 
  * @author Nikita Koksharov
  *
  */
-public class GeoDistanceMapDecoder implements MultiDecoder<Map<Object, Object>> {
+public class PointDecoder implements MultiDecoder<Point> {
 
-    private final Codec codec;
-    
-    public GeoDistanceMapDecoder(Codec codec) {
-        super();
-        this.codec = codec;
-    }
-    
     @Override
-    public Decoder<Object> getDecoder(int paramNum, State state) {
-        if (paramNum % 2 == 0) {
-            return codec.getValueDecoder();
-        }
+    public Decoder<Object> getDecoder(Codec codec, int paramNum, State state) {
         return DoubleCodec.INSTANCE.getValueDecoder();
     }
-
+    
     @Override
-    public Map<Object, Object> decode(List<Object> parts, State state) {
-        Map<Object, Object> result = new HashMap<Object, Object>(parts.size()/2);
-        for (int i = 0; i < parts.size(); i++) {
-            if (i % 2 != 0) {
-                result.put(parts.get(i-1), parts.get(i));
-           }
+    public Point decode(List<Object> parts, State state) {
+        if (parts.isEmpty()) {
+            return null;
         }
-        return result;
+
+        Double longitude = (Double)parts.get(0);
+        Double latitude = (Double)parts.get(1);
+        return new Point(longitude, latitude);
     }
 
 }

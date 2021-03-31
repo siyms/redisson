@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -134,6 +134,16 @@ public interface RBucketAsync<V> extends RExpirableAsync {
      * @return void
      */
     RFuture<Void> setAsync(V value, long timeToLive, TimeUnit timeUnit);
+
+    /**
+     * Set value and keep existing TTL.
+     * <p>
+     * Requires <b>Redis 6.0.0 and higher.</b>
+     *
+     * @param value - value to set
+     * @return void
+     */
+    RFuture<Void> setAndKeepTTLAsync(V value);
 
     /**
      * Adds object event listener

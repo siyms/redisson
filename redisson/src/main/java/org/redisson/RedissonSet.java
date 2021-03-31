@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ public class RedissonSet<V> extends RedissonExpirable implements RSet<V>, ScanIt
 
     @Override
     public <KOut, VOut> RCollectionMapReduce<V, KOut, VOut> mapReduce() {
-        return new RedissonCollectionMapReduce<V, KOut, VOut>(this, redisson, commandExecutor.getConnectionManager());
+        return new RedissonCollectionMapReduce<V, KOut, VOut>(this, redisson, commandExecutor);
     }
 
     @Override
@@ -608,6 +608,27 @@ public class RedissonSet<V> extends RedissonExpirable implements RSet<V>, ScanIt
         params.add(destName);
         
         return commandExecutor.writeAsync(getName(), codec, RedisCommands.SORT_TO, params.toArray());
+    }
+
+    @Override
+    public boolean tryAdd(V... values) {
+        return get(tryAddAsync(values));
+    }
+
+    @Override
+    public RFuture<Boolean> tryAddAsync(V... values) {
+        return commandExecutor.evalWriteAsync(getName(), codec, RedisCommands.EVAL_BOOLEAN,
+                  "for i, v in ipairs(ARGV) do " +
+                            "if redis.call('sismember', KEYS[1], v) == 1 then " +
+                                "return 0; " +
+                            "end; " +
+                        "end; " +
+
+                        "for i=1, #ARGV, 5000 do " +
+                            "redis.call('sadd', KEYS[1], unpack(ARGV, i, math.min(i+4999, #ARGV))); " +
+                        "end; " +
+                        "return 1; ",
+                       Arrays.asList(getName()), encode(values).toArray());
     }
 
     @Override

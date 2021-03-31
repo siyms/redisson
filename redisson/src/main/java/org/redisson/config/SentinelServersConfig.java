@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,8 @@ public class SentinelServersConfig extends BaseMasterSlaveServersConfig<Sentinel
 
     private String masterName;
 
+    private String sentinelPassword;
+
     /**
      * Database index used for Redis connection
      */
@@ -49,6 +51,8 @@ public class SentinelServersConfig extends BaseMasterSlaveServersConfig<Sentinel
 
     private boolean checkSentinelsList = true;
 
+    private boolean checkSlaveStatusWithSyncing = true;
+
     public SentinelServersConfig() {
     }
 
@@ -60,6 +64,8 @@ public class SentinelServersConfig extends BaseMasterSlaveServersConfig<Sentinel
         setScanInterval(config.getScanInterval());
         setNatMapper(config.getNatMapper());
         setCheckSentinelsList(config.isCheckSentinelsList());
+        setSentinelPassword(config.getSentinelPassword());
+        setCheckSlaveStatusWithSyncing(config.isCheckSlaveStatusWithSyncing());
     }
 
     /**
@@ -75,6 +81,22 @@ public class SentinelServersConfig extends BaseMasterSlaveServersConfig<Sentinel
     public String getMasterName() {
         return masterName;
     }
+
+    /**
+     * Password required by the Redis Sentinel servers for authentication.
+     * Used only if sentinel password differs from master and slave.
+     *
+     * @param sentinelPassword of Redis
+     * @return config
+     */
+    public SentinelServersConfig setSentinelPassword(String sentinelPassword) {
+        this.sentinelPassword = sentinelPassword;
+        return this;
+    }
+    public String getSentinelPassword() {
+        return sentinelPassword;
+    }
+
 
     /**
      * Add Redis Sentinel node address in host:port format. Multiple nodes at once could be added.
@@ -168,6 +190,23 @@ public class SentinelServersConfig extends BaseMasterSlaveServersConfig<Sentinel
      */
     public SentinelServersConfig setCheckSentinelsList(boolean checkSentinelsList) {
         this.checkSentinelsList = checkSentinelsList;
+        return this;
+    }
+
+    public boolean isCheckSlaveStatusWithSyncing() {
+        return checkSlaveStatusWithSyncing;
+    }
+
+    /**
+     * check node status from sentinel with 'master-link-status' flag
+     * <p>
+     * Default is <code>true</code>
+     *
+     * @param checkSlaveStatusWithSyncing - boolean value
+     * @return config
+     */
+    public SentinelServersConfig setCheckSlaveStatusWithSyncing(boolean checkSlaveStatusWithSyncing) {
+        this.checkSlaveStatusWithSyncing = checkSlaveStatusWithSyncing;
         return this;
     }
 }

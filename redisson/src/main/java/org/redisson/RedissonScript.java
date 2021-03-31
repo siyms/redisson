@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,12 +82,20 @@ public class RedissonScript implements RScript {
 
     @Override
     public <R> R eval(Mode mode, String luaScript, ReturnType returnType, List<Object> keys, Object... values) {
-        return eval(null, mode, luaScript, returnType, keys, values);
+        String key = null;
+        if (!keys.isEmpty()) {
+            key = (String) keys.get(0);
+        }
+        return eval(key, mode, luaScript, returnType, keys, values);
     }
 
     @Override
     public <R> RFuture<R> evalAsync(Mode mode, String luaScript, ReturnType returnType, List<Object> keys, Object... values) {
-        return evalAsync(null, mode, luaScript, returnType, keys, values);
+        String key = null;
+        if (!keys.isEmpty()) {
+            key = (String) keys.get(0);
+        }
+        return evalAsync(key, mode, luaScript, returnType, keys, values);
     }
 
     @Override

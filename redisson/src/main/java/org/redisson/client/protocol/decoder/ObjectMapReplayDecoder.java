@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,14 @@
  */
 package org.redisson.client.protocol.decoder;
 
+import org.redisson.client.codec.Codec;
+import org.redisson.client.handler.State;
+import org.redisson.client.protocol.Decoder;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import org.redisson.client.handler.State;
-import org.redisson.client.protocol.Decoder;
+import java.util.Optional;
 
 /**
  * 
@@ -28,6 +30,25 @@ import org.redisson.client.protocol.Decoder;
  *
  */
 public class ObjectMapReplayDecoder<K, V> implements MultiDecoder<Map<K, V>> {
+
+    private final Codec codec;
+
+    public ObjectMapReplayDecoder(Codec codec) {
+        this.codec = codec;
+    }
+
+    public ObjectMapReplayDecoder() {
+        this(null);
+    }
+
+    @Override
+    public Decoder<Object> getDecoder(Codec codec, int paramNum, State state) {
+        Codec c = Optional.ofNullable(this.codec).orElse(codec);
+        if (paramNum % 2 != 0) {
+            return c.getMapValueDecoder();
+        }
+        return c.getMapKeyDecoder();
+    }
 
     @Override
     public Map<K, V> decode(List<Object> parts, State state) {
@@ -38,11 +59,6 @@ public class ObjectMapReplayDecoder<K, V> implements MultiDecoder<Map<K, V>> {
             }
         }
         return result;
-    }
-
-    @Override
-    public Decoder<Object> getDecoder(int paramNum, State state) {
-        return null;
     }
 
 }

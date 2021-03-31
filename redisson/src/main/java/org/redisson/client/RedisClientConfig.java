@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,6 @@ public class RedisClientConfig {
     private String clientName;
     private boolean readOnly;
     private boolean keepPubSubOrder = true;
-    private boolean decodeInExecutor;
     private int pingConnectionInterval;
     private boolean keepAlive;
     private boolean tcpNoDelay;
@@ -97,7 +96,6 @@ public class RedisClientConfig {
         this.sslKeystorePassword = config.sslKeystorePassword;
         this.resolverGroup = config.resolverGroup;
         this.sslHostname = config.sslHostname;
-        this.decodeInExecutor = config.decodeInExecutor;
     }
 
     public NettyHook getNettyHook() {
@@ -272,15 +270,6 @@ public class RedisClientConfig {
     }
     public RedisClientConfig setKeepPubSubOrder(boolean keepPubSubOrder) {
         this.keepPubSubOrder = keepPubSubOrder;
-        return this;
-    }
-
-    public boolean isDecodeInExecutor() {
-        return decodeInExecutor;
-    }
-    @Deprecated
-    public RedisClientConfig setDecodeInExecutor(boolean decodeInExecutor) {
-        this.decodeInExecutor = decodeInExecutor;
         return this;
     }
 

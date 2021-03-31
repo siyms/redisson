@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -137,5 +137,15 @@ public interface RBucketReactive<V> extends RExpirableReactive {
      * @return void
      */
     Mono<Void> set(V value, long timeToLive, TimeUnit timeUnit);
+
+    /**
+     * Set value and keep existing TTL.
+     * <p>
+     * Requires <b>Redis 6.0.0 and higher.</b>
+     *
+     * @param value - value to set
+     * @return void
+     */
+    Mono<Void> setAndKeepTTL(V value);
 
 }

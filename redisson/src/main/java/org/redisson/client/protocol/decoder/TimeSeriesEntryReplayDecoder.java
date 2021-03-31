@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package org.redisson.client.protocol.decoder;
 
 import org.redisson.api.TimeSeriesEntry;
+import org.redisson.client.codec.Codec;
 import org.redisson.client.codec.LongCodec;
 import org.redisson.client.handler.State;
 import org.redisson.client.protocol.Decoder;
@@ -32,11 +33,11 @@ import java.util.List;
 public class TimeSeriesEntryReplayDecoder<T> implements MultiDecoder<List<TimeSeriesEntry<T>>> {
 
     @Override
-    public Decoder<Object> getDecoder(int paramNum, State state) {
+    public Decoder<Object> getDecoder(Codec codec, int paramNum, State state) {
         if (paramNum % 2 != 0) {
             return LongCodec.INSTANCE.getValueDecoder();
         }
-        return null;
+        return MultiDecoder.super.getDecoder(codec, paramNum, state);
     }
     
     @Override

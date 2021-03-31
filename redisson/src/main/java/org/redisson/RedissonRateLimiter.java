@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,9 @@ import org.redisson.api.*;
 import org.redisson.client.codec.LongCodec;
 import org.redisson.client.codec.StringCodec;
 import org.redisson.client.handler.State;
-import org.redisson.client.protocol.Decoder;
 import org.redisson.client.protocol.RedisCommand;
-import org.redisson.client.protocol.RedisCommand.ValueType;
 import org.redisson.client.protocol.RedisCommands;
+import org.redisson.client.protocol.decoder.MapEntriesDecoder;
 import org.redisson.client.protocol.decoder.MultiDecoder;
 import org.redisson.command.CommandAsyncExecutor;
 import org.redisson.misc.RPromise;
@@ -194,6 +193,8 @@ public class RedissonRateLimiter extends RedissonExpirable implements RRateLimit
                   + "permitsName = KEYS[5];"
               + "end;"
 
+              + "assert(tonumber(rate) >= tonumber(ARGV[1]), 'Requested permits amount could not exceed defined rate'); "
+
               + "local currentValue = redis.call('get', valueName); "
               + "if currentValue ~= false then "
                      + "local expiredValues = redis.call('zrangebyscore', permitsName, 0, tonumber(ARGV[2]) - interval); "
@@ -204,13 +205,13 @@ public class RedissonRateLimiter extends RedissonExpirable implements RRateLimit
                      + "end; "
 
                      + "if released > 0 then "
-                          + "redis.call('zrem', permitsName, unpack(expiredValues)); "
+                          + "redis.call('zremrangebyscore', permitsName, 0, tonumber(ARGV[2]) - interval); "
                           + "currentValue = tonumber(currentValue) + released; "
                           + "redis.call('set', valueName, currentValue);"
                      + "end;"
 
                      + "if tonumber(currentValue) < tonumber(ARGV[1]) then "
-                         + "local nearest = redis.call('zrangebyscore', permitsName, '(' .. (tonumber(ARGV[2]) - interval), tonumber(ARGV[2]), 'withscores', 'limit', 0, 1); "
+                         + "local nearest = redis.call('zrangebyscore', permitsName, '(' .. (tonumber(ARGV[2]) - interval), '+inf', 'withscores', 'limit', 0, 1); "
                          + "local random, permits = struct.unpack('fI', nearest[1]);"
                          + "return tonumber(nearest[2]) - (tonumber(ARGV[2]) - interval);"
                      + "else "
@@ -219,7 +220,6 @@ public class RedissonRateLimiter extends RedissonExpirable implements RRateLimit
                          + "return nil; "
                      + "end; "
               + "else "
-                     + "assert(tonumber(rate) >= tonumber(ARGV[1]), 'Requested permits amount could not exceed defined rate'); "
                      + "redis.call('set', valueName, rate); "
                      + "redis.call('zadd', permitsName, ARGV[2], struct.pack('fI', ARGV[3], ARGV[1])); "
                      + "redis.call('decrby', valueName, ARGV[1]); "
@@ -258,11 +258,7 @@ public class RedissonRateLimiter extends RedissonExpirable implements RRateLimit
                 Arrays.asList(getName(), getValueName(), getPermitsName()), rate, unit.toMillis(rateInterval), type.ordinal());
     }
     
-    private static final RedisCommand HGETALL = new RedisCommand("HGETALL", new MultiDecoder<RateLimiterConfig>() {
-        @Override
-        public Decoder<Object> getDecoder(int paramNum, State state) {
-            return null;
-        }
+    private static final RedisCommand HGETALL = new RedisCommand("HGETALL", new MapEntriesDecoder(new MultiDecoder<RateLimiterConfig>() {
 
         @Override
         public RateLimiterConfig decode(List<Object> parts, State state) {
@@ -279,7 +275,7 @@ public class RedissonRateLimiter extends RedissonExpirable implements RRateLimit
             return new RateLimiterConfig(type, rateInterval, rate);
         }
         
-    }, ValueType.MAP);
+    }));
     
     @Override
     public RateLimiterConfig getConfig() {
@@ -324,7 +320,7 @@ public class RedissonRateLimiter extends RedissonExpirable implements RRateLimit
                      + "end; "
 
                      + "if released > 0 then "
-                          + "redis.call('zrem', permitsName, unpack(expiredValues)); "
+                          + "redis.call('zremrangebyscore', permitsName, 0, tonumber(ARGV[1]) - interval); "
                           + "currentValue = tonumber(currentValue) + released; "
                           + "redis.call('set', valueName, currentValue);"
                      + "end;"

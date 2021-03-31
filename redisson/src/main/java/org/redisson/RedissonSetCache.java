@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ public class RedissonSetCache<V> extends RedissonExpirable implements RSetCache<
     
     @Override
     public <KOut, VOut> RCollectionMapReduce<V, KOut, VOut> mapReduce() {
-        return new RedissonCollectionMapReduce<V, KOut, VOut>(this, redisson, commandExecutor.getConnectionManager());
+        return new RedissonCollectionMapReduce<>(this, redisson, commandExecutor);
     }
 
     @Override
@@ -253,6 +253,48 @@ public class RedissonSetCache<V> extends RedissonExpirable implements RSetCache<
                 "end; " +
                 "return 1; ",
                 Arrays.asList(name), System.currentTimeMillis(), timeoutDate, objectState);
+    }
+
+    @Override
+    public boolean tryAdd(V... values) {
+        return get(tryAddAsync(values));
+    }
+
+    @Override
+    public RFuture<Boolean> tryAddAsync(V... values) {
+        return tryAddAsync(92233720368547758L - System.currentTimeMillis(), TimeUnit.MILLISECONDS, values);
+    }
+
+    @Override
+    public boolean tryAdd(long ttl, TimeUnit unit, V... values) {
+        return get(tryAddAsync(ttl, unit, values));
+    }
+
+    @Override
+    public RFuture<Boolean> tryAddAsync(long ttl, TimeUnit unit, V... values) {
+        long timeoutDate = System.currentTimeMillis() + unit.toMillis(ttl);
+        if (ttl == 0) {
+            timeoutDate = 92233720368547758L - System.currentTimeMillis();
+        }
+
+        List<Object> params = new ArrayList<>();
+        params.add(System.currentTimeMillis());
+        params.add(timeoutDate);
+        params.addAll(encode(values));
+
+        return commandExecutor.evalWriteAsync(getName(), codec, RedisCommands.EVAL_BOOLEAN,
+                  "for i, v in ipairs(ARGV) do " +
+                            "local expireDateScore = redis.call('zscore', KEYS[1], v); " +
+                            "if expireDateScore ~= false and tonumber(expireDateScore) > tonumber(ARGV[1]) then " +
+                                "return 0; " +
+                            "end; " +
+                        "end; " +
+
+                        "for i=3, #ARGV, 1 do " +
+                            "redis.call('zadd', KEYS[1], ARGV[2], ARGV[i]); " +
+                        "end; " +
+                        "return 1; ",
+                       Arrays.asList(getName()), params.toArray());
     }
 
     @Override

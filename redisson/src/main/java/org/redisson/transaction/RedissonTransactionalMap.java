@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 package org.redisson.transaction;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -80,14 +81,19 @@ public class RedissonTransactionalMap<K, V> extends RedissonMap<K, V> {
     
     @Override
     public RFuture<Boolean> expireAtAsync(Date timestamp) {
-        throw new UnsupportedOperationException("expireAt method is not supported in transaction");
+        throw new UnsupportedOperationException("expire method is not supported in transaction");
     }
     
     @Override
     public RFuture<Boolean> expireAtAsync(long timestamp) {
-        throw new UnsupportedOperationException("expireAt method is not supported in transaction");
+        throw new UnsupportedOperationException("expire method is not supported in transaction");
     }
-    
+
+    @Override
+    public RFuture<Boolean> expireAsync(Instant timestamp) {
+        throw new UnsupportedOperationException("expire method is not supported in transaction");
+    }
+
     @Override
     public RFuture<Boolean> clearExpireAsync() {
         throw new UnsupportedOperationException("clearExpire method is not supported in transaction");
@@ -132,7 +138,13 @@ public class RedissonTransactionalMap<K, V> extends RedissonMap<K, V> {
         checkState();
         return transactionalMap.addAndGetOperationAsync(key, value);
     }
-    
+
+    @Override
+    protected RFuture<V> putIfExistsOperationAsync(K key, V value) {
+        checkState();
+        return transactionalMap.putIfExistsOperationAsync(key, value);
+    }
+
     @Override
     protected RFuture<V> putIfAbsentOperationAsync(K key, V value) {
         checkState();
@@ -144,7 +156,13 @@ public class RedissonTransactionalMap<K, V> extends RedissonMap<K, V> {
         checkState();
         return transactionalMap.putOperationAsync(key, value);
     }
-    
+
+    @Override
+    protected RFuture<Boolean> fastPutIfExistsOperationAsync(K key, V value) {
+        checkState();
+        return transactionalMap.fastPutIfExistsOperationAsync(key, value);
+    }
+
     @Override
     protected RFuture<Boolean> fastPutIfAbsentOperationAsync(K key, V value) {
         checkState();

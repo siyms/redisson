@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,25 +30,20 @@ import org.redisson.client.protocol.Decoder;
  */
 public class ObjectMapDecoder implements MultiDecoder<Object> {
 
-    private final Codec codec;
     private final boolean decodeList;
     
-    public ObjectMapDecoder(Codec codec, boolean decodeList) {
+    public ObjectMapDecoder(boolean decodeList) {
         super();
-        this.codec = codec;
         this.decodeList = decodeList;
     }
 
-    private int pos;
-    private boolean mapDecoded;
-    
     @Override
-    public Decoder<Object> getDecoder(int paramNum, State state) {
-        if (mapDecoded) {
+    public Decoder<Object> getDecoder(Codec codec, int paramNum, State state) {
+        if (state.getValue() != null && (Boolean) state.getValue()) {
             return codec.getMapKeyDecoder();
         }
         
-        if (pos++ % 2 == 0) {
+        if (paramNum % 2 == 0) {
             return codec.getMapKeyDecoder();
         }
         return codec.getMapValueDecoder();
@@ -56,18 +51,18 @@ public class ObjectMapDecoder implements MultiDecoder<Object> {
     
     @Override
     public Object decode(List<Object> parts, State state) {
-        if (decodeList && mapDecoded) {
+        if (decodeList && (state.getValue() != null && (Boolean) state.getValue())) {
             return parts;
         }
-        
-        Map<Object, Object> result = new LinkedHashMap<Object, Object>(parts.size()/2);
+
+        Map<Object, Object> result = new LinkedHashMap<>(parts.size()/2);
         for (int i = 0; i < parts.size(); i++) {
             if (i % 2 != 0) {
                 result.put(parts.get(i-1), parts.get(i));
            }
         }
-        
-        mapDecoded = true;
+
+        state.setValue(true);
         return result;
     }
 

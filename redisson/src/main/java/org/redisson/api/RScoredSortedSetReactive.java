@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -154,7 +154,37 @@ public interface RScoredSortedSetReactive<V> extends RExpirableReactive, RSortab
      * @return the tail element or {@code null} if this sorted set is empty
      */
     Mono<Double> lastScore();
-    
+
+    /**
+     * Returns random element from this sorted set
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @return random element
+     */
+    Mono<V> random();
+
+    /**
+     * Returns random elements from this sorted set limited by <code>count</code>
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param count - values amount to return
+     * @return random elements
+     */
+    Mono<Collection<V>> random(int count);
+
+    /**
+     * Returns random entries from this sorted set limited by <code>count</code>.
+     * Each map entry uses element as key and score as value.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param count - entries amount to return
+     * @return random entries
+     */
+    Mono<Map<V, Double>> randomEntries(int count);
+
     /**
      * Returns an iterator over elements in this set.
      * If <code>pattern</code> is not null then only elements match this pattern are loaded.
@@ -234,7 +264,7 @@ public interface RScoredSortedSetReactive<V> extends RExpirableReactive, RSortab
      * @param elements - elements
      * @return ranks or <code>null</code> if value does not exist
      */
-    Mono<List<Integer>> revRankAsync(Collection<V> elements);
+    Mono<List<Integer>> revRank(Collection<V> elements);
 
     /**
      * Returns score of element or <code>null</code> if it doesn't exist.
@@ -268,7 +298,7 @@ public interface RScoredSortedSetReactive<V> extends RExpirableReactive, RSortab
      * @param objects - map of elements to add
      * @return amount of added elements, not including already existing in this sorted set
      */
-    Mono<Long> addAll(Map<V, Double> objects);
+    Mono<Integer> addAll(Map<V, Double> objects);
     
     /**
      * Adds element to this set, overrides previous score if it has been already added.
@@ -308,7 +338,40 @@ public interface RScoredSortedSetReactive<V> extends RExpirableReactive, RSortab
      * @return <code>true</code> if element has added and <code>false</code> if not.
      */
     Mono<Boolean> tryAdd(double score, V object);
-    
+
+    /**
+     * Adds element to this set only if it's already exists.
+     * <p>
+     * Requires <b>Redis 3.0.2 and higher.</b>
+     *
+     * @param score - object score
+     * @param object - object itself
+     * @return <code>true</code> if element added and <code>false</code> if not.
+     */
+    Mono<Boolean> addIfExists(double score, V object);
+
+    /**
+     * Adds element to this set only if new score less than current score of existed element.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param score - object score
+     * @param object - object itself
+     * @return <code>true</code> if element added and <code>false</code> if not.
+     */
+    Mono<Boolean> addIfLess(double score, V object);
+
+    /**
+     * Adds element to this set only if new score greater than current score of existed element.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param score - object score
+     * @param object - object itself
+     * @return <code>true</code> if element added and <code>false</code> if not.
+     */
+    Mono<Boolean> addIfGreater(double score, V object);
+
     /**
      * Removes a single instance of the specified element from this
      * sorted set, if it is present.
@@ -575,7 +638,7 @@ public interface RScoredSortedSetReactive<V> extends RExpirableReactive, RSortab
      * @param endScoreInclusive - end score inclusive
      * @return count
      */
-    Mono<Long> count(double startScore, boolean startScoreInclusive, double endScore, boolean endScoreInclusive);
+    Mono<Integer> count(double startScore, boolean startScoreInclusive, double endScore, boolean endScoreInclusive);
     
     /**
      * Read all values at once.
@@ -583,6 +646,106 @@ public interface RScoredSortedSetReactive<V> extends RExpirableReactive, RSortab
      * @return values
      */
     Mono<Collection<V>> readAll();
+
+    /**
+     * Stores to defined ScoredSortedSet values by rank range. Indexes are zero based.
+     * <code>-1</code> means the highest score, <code>-2</code> means the second highest score.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param startIndex - start index
+     * @param endIndex - end index
+     * @return elements
+     */
+    Mono<Integer> rangeTo(String destName, int startIndex, int endIndex);
+
+    /**
+     * Stores to defined ScoredSortedSet values between <code>startScore</code> and <code>endScore</code>.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param startScore - start score.
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     * @param startScoreInclusive - start score inclusive
+     * @param endScore - end score
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     *
+     * @param endScoreInclusive - end score inclusive
+     * @return values
+     */
+    Mono<Integer> rangeTo(String destName, double startScore, boolean startScoreInclusive, double endScore, boolean endScoreInclusive);
+
+    /**
+     * Stores to defined ScoredSortedSet values between <code>startScore</code> and <code>endScore</code>.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param startScore - start score.
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     * @param startScoreInclusive - start score inclusive
+     * @param endScore - end score
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     *
+     * @param endScoreInclusive - end score inclusive
+     * @param offset - offset of sorted data
+     * @param count - amount of sorted data
+     * @return values
+     */
+    Mono<Integer> rangeTo(String destName, double startScore, boolean startScoreInclusive, double endScore, boolean endScoreInclusive, int offset, int count);
+
+    /**
+     * Stores to defined ScoredSortedSet values in reversed order by rank range. Indexes are zero based.
+     * <code>-1</code> means the highest score, <code>-2</code> means the second highest score.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param startIndex - start index
+     * @param endIndex - end index
+     * @return elements
+     */
+    Mono<Integer> revRangeTo(String destName, int startIndex, int endIndex);
+
+    /**
+     * Stores to defined ScoredSortedSet values in reversed order between <code>startScore</code> and <code>endScore</code>.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param startScore - start score.
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     * @param startScoreInclusive - start score inclusive
+     * @param endScore - end score
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     *
+     * @param endScoreInclusive - end score inclusive
+     * @return values
+     */
+    Mono<Integer> revRangeTo(String destName, double startScore, boolean startScoreInclusive, double endScore, boolean endScoreInclusive);
+
+    /**
+     * Stores to defined ScoredSortedSet values in reversed order between <code>startScore</code> and <code>endScore</code>.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param startScore - start score.
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     * @param startScoreInclusive - start score inclusive
+     * @param endScore - end score
+     *                     Use <code>Double.POSITIVE_INFINITY</code> or <code>Double.NEGATIVE_INFINITY</code>
+     *                     to define infinity numbers
+     *
+     * @param endScoreInclusive - end score inclusive
+     * @param offset - offset of sorted data
+     * @param count - amount of sorted data
+     * @return values
+     */
+    Mono<Integer> revRangeTo(String destName, double startScore, boolean startScoreInclusive, double endScore, boolean endScoreInclusive, int offset, int count);
 
     /**
      * Intersect provided ScoredSortedSets 
@@ -624,6 +787,53 @@ public interface RScoredSortedSetReactive<V> extends RExpirableReactive, RSortab
     Mono<Integer> intersection(Aggregate aggregate, Map<String, Double> nameWithWeight);
 
     /**
+     * Intersect provided ScoredSortedSets
+     * with current ScoredSortedSet without state change
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param names - names of ScoredSortedSet
+     * @return result of intersection
+     */
+    Mono<Collection<V>> readIntersection(String... names);
+
+    /**
+     * Intersect provided ScoredSortedSets with current ScoredSortedSet using defined aggregation method
+     * without state change
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param aggregate - score aggregation mode
+     * @param names - names of ScoredSortedSet
+     * @return result of intersection
+     */
+    Mono<Collection<V>> readIntersection(Aggregate aggregate, String... names);
+
+    /**
+     * Intersect provided ScoredSortedSets mapped to weight multiplier
+     * with current ScoredSortedSet without state change
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param nameWithWeight - name of ScoredSortedSet mapped to weight multiplier
+     * @return result of intersection
+     */
+    Mono<Collection<V>> readIntersection(Map<String, Double> nameWithWeight);
+
+    /**
+     * Intersect provided ScoredSortedSets mapped to weight multiplier
+     * with current ScoredSortedSet using defined aggregation method
+     * without state change
+      * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+    *
+     * @param aggregate - score aggregation mode
+     * @param nameWithWeight - name of ScoredSortedSet mapped to weight multiplier
+     * @return result of intersection
+     */
+    Mono<Collection<V>> readIntersection(Aggregate aggregate, Map<String, Double> nameWithWeight);
+
+    /**
      * Union provided ScoredSortedSets 
      * and store result to current ScoredSortedSet
      * 
@@ -661,6 +871,75 @@ public interface RScoredSortedSetReactive<V> extends RExpirableReactive, RSortab
      * @return length of union
      */
     Mono<Integer> union(Aggregate aggregate, Map<String, Double> nameWithWeight);
+
+    /**
+     * Union ScoredSortedSets specified by name with current ScoredSortedSet
+     * without state change.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param names - names of ScoredSortedSet
+     * @return result of union
+     */
+    Mono<Collection<V>> readUnion(String... names);
+
+    /**
+     * Union ScoredSortedSets specified by name with defined aggregation method
+     * and current ScoredSortedSet without state change.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param aggregate - score aggregation mode
+     * @param names - names of ScoredSortedSet
+     * @return result of union
+     */
+    Mono<Collection<V>> readUnion(Aggregate aggregate, String... names);
+
+    /**
+     * Union provided ScoredSortedSets mapped to weight multiplier
+     * and current ScoredSortedSet without state change.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param nameWithWeight - name of ScoredSortedSet mapped to weight multiplier
+     * @return result of union
+     */
+    Mono<Collection<V>> readUnion(Map<String, Double> nameWithWeight);
+
+    /**
+     * Union provided ScoredSortedSets mapped to weight multiplier
+     * with defined aggregation method
+     * and current ScoredSortedSet without state change
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param aggregate - score aggregation mode
+     * @param nameWithWeight - name of ScoredSortedSet mapped to weight multiplier
+     * @return result of union
+     */
+    Mono<Collection<V>> readUnion(Aggregate aggregate, Map<String, Double> nameWithWeight);
+
+    /**
+     * Diff ScoredSortedSets specified by name
+     * with current ScoredSortedSet without state change.
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param names - name of sets
+     * @return result of diff
+     */
+    Mono<Collection<V>> readDiff(String... names);
+
+    /**
+     * Diff provided ScoredSortedSets
+     * and store result to current ScoredSortedSet
+     * <p>
+     * Requires <b>Redis 6.2.0 and higher.</b>
+     *
+     * @param names - name of sets
+     * @return length of diff
+     */
+    Mono<Integer> diff(String... names);
 
     /**
      * Removes and returns the head element waiting if necessary for an element to become available.

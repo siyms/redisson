@@ -1,15 +1,8 @@
 package org.redisson.executor;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-
+import mockit.Invocation;
+import mockit.Mock;
+import mockit.MockUp;
 import org.joor.Reflect;
 import org.junit.After;
 import org.junit.Assert;
@@ -24,9 +17,15 @@ import org.redisson.api.annotation.RInject;
 import org.redisson.config.Config;
 import org.redisson.config.RedissonNodeConfig;
 
-import mockit.Invocation;
-import mockit.Mock;
-import mockit.MockUp;
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class RedissonScheduledExecutorServiceTest extends BaseTest {
 
@@ -38,15 +37,13 @@ public class RedissonScheduledExecutorServiceTest extends BaseTest {
         super.before();
         Config config = createConfig();
         RedissonNodeConfig nodeConfig = new RedissonNodeConfig(config);
-        nodeConfig.setExecutorServiceWorkers(Collections.singletonMap("test", 1));
+        nodeConfig.setExecutorServiceWorkers(Collections.singletonMap("test", 5));
         node = RedissonNode.create(nodeConfig);
         node.start();
     }
 
     @After
-    @Override
     public void after() throws InterruptedException {
-        super.after();
         node.shutdown();
     }
     
@@ -65,6 +62,53 @@ public class RedissonScheduledExecutorServiceTest extends BaseTest {
             redisson.getAtomicLong("counter").incrementAndGet();
         }
 
+    }
+
+    public static class TestTask2 implements Runnable, Serializable {
+
+        @RInject
+        RedissonClient redisson;
+
+        @Override
+        public void run() {
+            RList<Object> list = redisson.getList("timelist");
+            list.add(System.currentTimeMillis());
+
+            RAtomicLong counter = redisson.getAtomicLong("counter");
+            try {
+                if (counter.get() == 0) {
+                    Thread.sleep(1000);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+
+            counter.incrementAndGet();
+        }
+
+    }
+
+    @Test
+    public void testScheduleAtFixedRate() throws InterruptedException {
+        RScheduledExecutorService executorService = redisson.getExecutorService("test");
+        executorService.scheduleAtFixedRate(new TestTask2(), 1000L, 200L, TimeUnit.MILLISECONDS);
+
+        Thread.sleep(4000);
+
+        RList<Long> list = redisson.getList("timelist");
+
+        long start = list.get(1);
+        list.stream().skip(1).limit(5).reduce(start, (r, e) -> {
+            assertThat(e - r).isLessThan(20L);
+            return e;
+        });
+
+        long start2 = list.get(5);
+        list.stream().skip(6).limit(15).reduce(start2, (r, e) -> {
+            assertThat(e - r).isBetween(160L, 310L);
+            return e;
+        });
     }
 
     @Test
@@ -275,7 +319,29 @@ public class RedissonScheduledExecutorServiceTest extends BaseTest {
         assertThat(redisson.getAtomicLong("executed2").get()).isEqualTo(30);
     }
 
-    
+    public static class RunnableTask2 implements Runnable, Serializable {
+
+        @Override
+        public void run() {
+            try {
+                Thread.sleep(4000);
+            } catch (InterruptedException interruptedException) {
+                interruptedException.printStackTrace();
+            }
+        }
+
+    }
+
+    @Test(timeout = 15000)
+    public void testCancel2() throws InterruptedException {
+        RScheduledExecutorService e = redisson.getExecutorService("myExecutor");
+        e.registerWorkers(WorkerOptions.defaults());
+        String taskId = redisson.getExecutorService("myExecutor").schedule(new RunnableTask2(), 2000, TimeUnit.MILLISECONDS).getTaskId();
+        Thread.sleep(5500);
+
+        assertThat(e.cancelTask(taskId)).isFalse();
+    }
+
     @Test
     public void testCancel() throws InterruptedException, ExecutionException {
         RScheduledExecutorService executor = redisson.getExecutorService("test");

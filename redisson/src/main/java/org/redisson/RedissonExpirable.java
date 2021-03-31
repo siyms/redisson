@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-2020 Nikita Koksharov
+ * Copyright (c) 2013-2021 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 package org.redisson;
 
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
@@ -59,7 +60,17 @@ abstract class RedissonExpirable extends RedissonObject implements RExpirable {
 
     @Override
     public RFuture<Boolean> expireAtAsync(long timestamp) {
-        return commandExecutor.writeAsync(getName(), StringCodec.INSTANCE, RedisCommands.PEXPIREAT, getName(), timestamp);
+        return expireAsync(Instant.ofEpochMilli(timestamp));
+    }
+
+    @Override
+    public boolean expire(Instant instant) {
+        return get(expireAsync(instant));
+    }
+
+    @Override
+    public RFuture<Boolean> expireAsync(Instant instant) {
+        return commandExecutor.writeAsync(getName(), StringCodec.INSTANCE, RedisCommands.PEXPIREAT, getName(), instant.toEpochMilli());
     }
 
     @Override
